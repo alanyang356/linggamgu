@@ -1,0 +1,22 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Plus Jakarta Sans", "Noto Sans SC", sans-serif;
+  --color-primary: #d3b58d;
+  --color-background-light: #f8f7f6;
+  --color-background-dark: #1e1a14;
+}
+
+@layer base {
+  body {
+    @apply bg-background-light text-slate-900 font-display;
+  }
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
