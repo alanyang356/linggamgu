@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowLeft, Share2, Droplets, Sprout, Wheat, X, Send, Loader2 } from 'lucide-react';
+import { ArrowLeft, Share2, Droplets, Sprout, Wheat, X, Send, Loader2, Trash2, Edit2 } from 'lucide-react';
 import { Inspiration, Screen, User } from '../types';
-import { likeInspiration, collectInspiration, hasLiked, hasCollected, getComments, addComment, createNotification } from '../lib/api';
+import { likeInspiration, collectInspiration, hasLiked, hasCollected, getComments, addComment, deleteComment, createNotification } from '../lib/api';
 
 interface DetailScreenProps {
   inspiration: Inspiration;
   onBack: () => void;
   onNavigate: (screen: Screen) => void;
   onUserClick?: (user: any) => void;
+  onEdit?: (inspiration: Inspiration) => void;
   currentUser?: User;
   currentUserId?: string;
 }
@@ -37,7 +38,7 @@ const InputDialog = ({ isOpen, onClose, title, placeholder, onSubmit }: DialogPr
     <AnimatePresence>
       <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
         <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
-          className="w-full max-w-lg bg-white rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl">
+          className="w-full max-w-lg bg-white rounded-t-3xl sm:rounded-3xl p-6 pb-10 shadow-2xl">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-xl font-bold">{title}</h3>
             <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition-colors"><X size={20} /></button>
@@ -54,7 +55,7 @@ const InputDialog = ({ isOpen, onClose, title, placeholder, onSubmit }: DialogPr
   );
 };
 
-export default function DetailScreen({ inspiration, onBack, onNavigate, onUserClick, currentUser, currentUserId }: DetailScreenProps) {
+export default function DetailScreen({ inspiration, onBack, onNavigate, onUserClick, onEdit, currentUser, currentUserId }: DetailScreenProps) {
   const [isWatered, setIsWatered] = useState(false);
   const [likeCount, setLikeCount] = useState(inspiration.stats.likes);
   const [isHarvested, setIsHarvested] = useState(false);
@@ -171,6 +172,18 @@ export default function DetailScreen({ inspiration, onBack, onNavigate, onUserCl
     showToast('💬 评论成功');
   };
 
+  const handleDeleteComment = async (commentId: string) => {
+    if (!currentUserId) return;
+    if (!window.confirm('确定删除这条施肥记录吗？')) return;
+    try {
+      await deleteComment(commentId, currentUserId);
+      setComments(prev => prev.filter(c => c.id !== commentId));
+      showToast('已删除');
+    } catch {
+      showToast('删除失败，请重试');
+    }
+  };
+
   const userObj = (name: string, avatar: string, id?: string, stats?: any) => ({
     id: id || name, name, avatar, stats: stats || { planted: 0, harvested: 0, following: 0 }
   });
@@ -179,8 +192,16 @@ export default function DetailScreen({ inspiration, onBack, onNavigate, onUserCl
     <div className="min-h-screen bg-white pb-32">
       <header className="fixed top-0 left-0 right-0 z-20 px-4 py-4 flex items-center justify-between bg-white/80 backdrop-blur-md">
         <button onClick={onBack} className="size-10 flex items-center justify-center bg-slate-100 rounded-full"><ArrowLeft size={20} /></button>
-        <button onClick={() => { if (navigator.share) navigator.share({ title: inspiration.title, text: inspiration.description }); }}
-          className="size-10 flex items-center justify-center bg-slate-100 rounded-full"><Share2 size={20} /></button>
+        <div className="flex items-center gap-2">
+          {isAuthorMe && onEdit && (
+            <button onClick={() => onEdit(inspiration)}
+              className="size-10 flex items-center justify-center bg-slate-100 rounded-full hover:bg-primary/10 hover:text-primary transition-colors">
+              <Edit2 size={18} />
+            </button>
+          )}
+          <button onClick={() => { if (navigator.share) navigator.share({ title: inspiration.title, text: inspiration.description }); }}
+            className="size-10 flex items-center justify-center bg-slate-100 rounded-full"><Share2 size={20} /></button>
+        </div>
       </header>
 
       <div className="pt-20 px-4 space-y-6">
@@ -264,8 +285,8 @@ export default function DetailScreen({ inspiration, onBack, onNavigate, onUserCl
                 return (
                   <div key={comment.id} className="space-y-4">
                     <div className="flex gap-3">
-                      <img src={uAvatar} className="size-10 rounded-full bg-slate-100 cursor-pointer" referrerPolicy="no-referrer" loading="lazy"
-                        onClick={() => onUserClick && onUserClick(userObj(uName, uAvatar))} />
+                      <img src={uAvatar} className="size-10 rounded-full bg-slate-100 cursor-pointer" referrerPolicy="no-referrer"
+                        onClick={() = loading="lazy" /> onUserClick && onUserClick(userObj(uName, uAvatar))} />
                       <div className="flex-1 space-y-1">
                         <span className="font-bold cursor-pointer hover:text-primary transition-colors"
                           onClick={() => onUserClick && onUserClick(userObj(uName, uAvatar))}>{uName}</span>
@@ -273,6 +294,11 @@ export default function DetailScreen({ inspiration, onBack, onNavigate, onUserCl
                         <div className="flex items-center gap-4 text-xs text-slate-400">
                           <span>{comment.time}</span>
                           <button onClick={() => handleReply(comment.id, uName)} className="text-primary font-bold hover:underline">回复</button>
+                          {currentUser && comment.user.name === currentUser.name && (
+                            <button onClick={() => handleDeleteComment(comment.id)} className="text-red-400 hover:text-red-600 transition-colors">
+                              <Trash2 size={12} />
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -282,8 +308,8 @@ export default function DetailScreen({ inspiration, onBack, onNavigate, onUserCl
                       const rAvatar = rMe ? currentUser.avatar : reply.user.avatar;
                       return (
                         <div key={reply.id} className="pl-12 flex gap-3">
-                          <img src={rAvatar} className="size-8 rounded-full bg-slate-100 cursor-pointer" referrerPolicy="no-referrer" loading="lazy"
-                            onClick={() => onUserClick && onUserClick(userObj(rName, rAvatar))} />
+                          <img src={rAvatar} className="size-8 rounded-full bg-slate-100 cursor-pointer" referrerPolicy="no-referrer"
+                            onClick={() = loading="lazy" /> onUserClick && onUserClick(userObj(rName, rAvatar))} />
                           <div className="flex-1 space-y-1">
                             <span className="font-bold text-sm cursor-pointer hover:text-primary transition-colors"
                               onClick={() => onUserClick && onUserClick(userObj(rName, rAvatar))}>{rName}</span>
