@@ -1,13 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { X, MousePointer2, Plus, MapPin, Eye, Send, Trash2, Check, Navigation, Search, Globe, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Draft, User } from '../types';
-import { createInspiration, compressImage } from '../lib/api';
+import { Draft, User, Inspiration } from '../types';
+import { createInspiration, updateInspiration, compressImage } from '../lib/api';
 
 interface CreateScreenProps {
   currentUser?: User;
   onClose: () => void;
   initialDraft?: Draft | null;
+  editingInspiration?: Inspiration | null;
   onSaveDraft?: (draft: Draft) => void;
   onPublishSuccess?: () => void;
 }
@@ -16,18 +17,28 @@ const GLOBAL_CITIES = [
   '北京', '上海', '广州', '深圳', '东京', '纽约', '伦敦', '巴黎', '柏林', '悉尼', '新加坡', '首尔'
 ];
 
-export default function CreateScreen({ onClose, initialDraft, onSaveDraft, currentUser, onPublishSuccess }: CreateScreenProps) {
-  const [text, setText] = useState(initialDraft?.content || '');
-  const [images, setImages] = useState<string[]>(initialDraft?.image ? [initialDraft.image] : []);
+export default function CreateScreen({ onClose, initialDraft, editingInspiration, onSaveDraft, currentUser, onPublishSuccess }: CreateScreenProps) {
+  const isEditing = !!editingInspiration;
+  const [text, setText] = useState(
+    editingInspiration?.content || editingInspiration?.description || initialDraft?.content || ''
+  );
+  const [images, setImages] = useState<string[]>(
+    editingInspiration?.image ? [editingInspiration.image] :
+    initialDraft?.image ? [initialDraft.image] : []
+  );
   const [tags, setTags] = useState(['#旅行', '#学习', '#工作', '#创作', '#美食', '#生活']);
-  const [selectedTags, setSelectedTags] = useState<string[]>(initialDraft?.tags || ['#生活']);
+  const [selectedTags, setSelectedTags] = useState<string[]>(
+    editingInspiration?.tags || initialDraft?.tags || ['#生活']
+  );
   const [isAddingTag, setIsAddingTag] = useState(false);
   const [newTagValue, setNewTagValue] = useState('');
   const [selectedLocation, setSelectedLocation] = useState<string | null>(initialDraft?.location || null);
   const [isPickingLocation, setIsPickingLocation] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
   const [nearbyPlaces, setNearbyPlaces] = useState<string[]>([]);
-  const [visibility, setVisibility] = useState<'public' | 'private'>(initialDraft?.visibility || 'public');
+  const [visibility, setVisibility] = useState<'public' | 'private'>(
+    editingInspiration ? (editingInspiration as any).visibility || 'public' : initialDraft?.visibility || 'public'
+  );
   const [isPickingVisibility, setIsPickingVisibility] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishSuccess, setPublishSuccess] = useState(false);
@@ -76,7 +87,7 @@ export default function CreateScreen({ onClose, initialDraft, onSaveDraft, curre
     if (onSaveDraft) {
       setIsSavingDraft(true);
       const draft: Draft = {
-        id: initialDraft?.id || '', // 空字符串 = 新草稿，走 INSERT
+        id: initialDraft?.id || Date.now().toString(),
         title: text.slice(0, 20) || '未命名的灵感',
         content: text,
         image: images[0] || '',
@@ -87,15 +98,11 @@ export default function CreateScreen({ onClose, initialDraft, onSaveDraft, curre
       };
       try {
         await onSaveDraft(draft);
-        // 不调 onClose，由 App.tsx 导航到草稿箱
-      } catch (e) {
-        console.error('Save draft failed:', e);
-        onClose();
+        setDraftSaved(true);
+        setTimeout(() => setDraftSaved(false), 2000);
       } finally {
         setIsSavingDraft(false);
       }
-    } else {
-      onClose();
     }
   };
 
@@ -297,28 +304,40 @@ export default function CreateScreen({ onClose, initialDraft, onSaveDraft, curre
       if (selectedLocation) {
         addToRecent(selectedLocation);
       }
-      // 发布前先压缩图片
       const compressedImage = images[0] ? await compressImage(images[0]) : '';
-      await createInspiration({
-        title: text.slice(0, 20) + (text.length > 20 ? '...' : ''),
-        description: text,
-        image: compressedImage,
-        tags: selectedTags,
-        author: {
-          id: currentUser?.id || '',
-          name: currentUser?.name || '灵感播种人',
-          avatar: currentUser?.avatar || '',
-        },
-        content: text,
-        quote: '',
-        visibility: visibility,
-      });
-      // 显示发布成功动画，1.5秒后跳转
+
+      if (isEditing && editingInspiration) {
+        // 编辑模式：更新已有灵感
+        await updateInspiration(editingInspiration.id, {
+          title: text.slice(0, 20) + (text.length > 20 ? '...' : ''),
+          description: text,
+          content: text,
+          image: compressedImage || editingInspiration.image,
+          tags: selectedTags,
+          visibility,
+        });
+      } else {
+        // 新增模式
+        await createInspiration({
+          title: text.slice(0, 20) + (text.length > 20 ? '...' : ''),
+          description: text,
+          image: compressedImage,
+          tags: selectedTags,
+          author: {
+            id: currentUser?.id || '',
+            name: currentUser?.name || '灵感播种人',
+            avatar: currentUser?.avatar || '',
+          },
+          content: text,
+          quote: '',
+          visibility: visibility,
+        });
+      }
       setPublishSuccess(true);
     } catch (error: any) {
       console.error('Publish error:', error);
       const msg = error?.message || '未知错误';
-      alert(`发布失败：${msg}\n\n请检查：\n1. 网络连接是否正常\n2. 是否已登录\n3. 打开浏览器控制台查看详细错误`);
+      alert(`${isEditing ? '更新' : '发布'}失败：${msg}\n\n请检查：\n1. 网络连接是否正常\n2. 是否已登录\n3. 打开浏览器控制台查看详细错误`);
     } finally {
       setIsPublishing(false);
     }
@@ -350,14 +369,22 @@ export default function CreateScreen({ onClose, initialDraft, onSaveDraft, curre
           <X size={24} />
         </button>
         <h1 className="text-lg font-bold">{initialDraft ? '编辑草稿' : '新灵感'}</h1>
-        <button 
-          onClick={handlePublish}
-          disabled={isPublishing}
-          className="bg-primary text-white font-bold px-4 py-1.5 rounded-full text-sm shadow-sm flex items-center gap-2 disabled:opacity-50"
-        >
-          {isPublishing ? <Loader2 size={16} className="animate-spin" /> : null}
-          发布
-        </button>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={handleSaveDraft}
+            className="text-slate-400 font-bold px-2 py-1 hover:text-primary transition-colors"
+          >
+            草稿
+          </button>
+          <button 
+            onClick={handlePublish}
+            disabled={isPublishing}
+            className="bg-primary text-white font-bold px-4 py-1.5 rounded-full text-sm shadow-sm flex items-center gap-2 disabled:opacity-50"
+          >
+            {isPublishing ? <Loader2 size={16} className="animate-spin" /> : null}
+            {isEditing ? '保存修改' : '发布'}
+          </button>
+        </div>
       </header>
 
       <main className="px-4 py-6 space-y-8 pb-32">
@@ -740,12 +767,9 @@ export default function CreateScreen({ onClose, initialDraft, onSaveDraft, curre
               <div className="flex flex-col gap-3">
                 <button 
                   onClick={handleSaveDraft}
-                  disabled={isSavingDraft}
-                  className="w-full h-12 bg-primary text-white font-bold rounded-2xl transition-all shadow-lg shadow-primary/20 active:scale-95 disabled:opacity-70 flex items-center justify-center gap-2"
+                  className="w-full h-12 bg-primary text-white font-bold rounded-2xl hover:bg-primary-dark transition-colors shadow-lg shadow-primary/20"
                 >
-                  {isSavingDraft ? (
-                    <><Loader2 size={18} className="animate-spin" />保存中...</>
-                  ) : '保存并退出'}
+                  保存并退出
                 </button>
                 <button 
                   onClick={onClose}
