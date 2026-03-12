@@ -244,12 +244,9 @@ export async function createInspiration(inspiration: {
     throw new Error(error.message || '发布失败');
   }
 
-  // 更新 planted_count（直接 +1，不依赖不存在的RPC函数）
+  // 更新播种数（RPC不存在时静默跳过）
   if (inspiration.author.id) {
-    const { data: prof } = await supabase.from('profiles').select('planted_count').eq('id', inspiration.author.id).single();
-    if (prof) {
-      await supabase.from('profiles').update({ planted_count: (prof.planted_count || 0) + 1 }).eq('id', inspiration.author.id);
-    }
+    await supabase.rpc('increment_planted', { user_id: inspiration.author.id }).catch(() => {});
   }
 
   return mapInspiration(data);
@@ -257,6 +254,33 @@ export async function createInspiration(inspiration: {
 
 export async function deleteInspiration(id: string) {
   const { error } = await supabase.from('inspirations').delete().eq('id', id);
+  if (error) throw error;
+}
+
+export async function updateInspiration(id: string, updates: {
+  title: string;
+  description: string;
+  content: string;
+  image: string;
+  tags: string[];
+  visibility: 'public' | 'private';
+}): Promise<void> {
+  const compressedImage = updates.image && updates.image.startsWith('data:image')
+    ? await compressImage(updates.image)
+    : updates.image;
+
+  const { error } = await supabase
+    .from('inspirations')
+    .update({
+      title: updates.title,
+      description: updates.description,
+      content: updates.content,
+      image: compressedImage,
+      tags: updates.tags,
+      visibility: updates.visibility,
+    })
+    .eq('id', id);
+
   if (error) throw error;
 }
 
@@ -282,13 +306,12 @@ export async function likeInspiration(inspirationId: string, userId: string): Pr
       .update({ likes_count: supabase.rpc('decrement', { x: 1 }) as any })
       .eq('id', inspirationId);
     // Use raw update for decrement
-    const { error: rpcErr } = await supabase.rpc('decrement_likes', { inspiration_id: inspirationId });
-    if (rpcErr) {
+    await supabase.rpc('decrement_likes', { inspiration_id: inspirationId }).catch(async () => {
       const { data: insp } = await supabase.from('inspirations').select('likes_count').eq('id', inspirationId).single();
       if (insp) {
         await supabase.from('inspirations').update({ likes_count: Math.max(0, insp.likes_count - 1) }).eq('id', inspirationId);
       }
-    }
+    });
     return false; // now unliked
   } else {
     // Like
@@ -441,6 +464,18 @@ export async function addComment(params: {
     content: data.content,
     time: '刚刚',
   };
+}
+
+export async function deleteComment(commentId: string, authorId: string): Promise<void> {
+  // 先删除所有回复
+  await supabase.from('comments').delete().eq('parent_id', commentId);
+  // 再删除评论本身
+  const { error } = await supabase
+    .from('comments')
+    .delete()
+    .eq('id', commentId)
+    .eq('author_id', authorId);
+  if (error) throw error;
 }
 
 // =============================================
@@ -724,7 +759,6 @@ function mapInspiration(item: any): Inspiration {
     },
     content: item.content,
     quote: item.quote,
-    visibility: item.visibility,
   };
 }
 
