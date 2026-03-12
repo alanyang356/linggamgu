@@ -75,8 +75,8 @@ export default function DetailScreen({ inspiration, onBack, onNavigate, onUserCl
   // 进入页面时：读取真实点赞/收藏状态 + 评论列表
   useEffect(() => {
     if (currentUserId) {
-      hasLiked(inspiration.id, currentUserId).then(setIsWatered).catch(() => {});
-      hasCollected(inspiration.id, currentUserId).then(setIsHarvested).catch(() => {});
+      hasLiked(inspiration.id, currentUserId).then(setIsWatered).catch(() => { });
+      hasCollected(inspiration.id, currentUserId).then(setIsHarvested).catch(() => { });
     }
     getComments(inspiration.id)
       .then(setComments)
@@ -161,7 +161,7 @@ export default function DetailScreen({ inspiration, onBack, onNavigate, onUserCl
         actorAvatar: currentUser?.avatar || '',
         targetId: inspiration.id, targetTitle: inspiration.title,
         content: `评论了你的灵感：${text}`,
-      }).catch(() => {});
+      }).catch(() => { });
     }
     if (dialogConfig.type === 'comment') {
       setComments(prev => [newComment, ...prev]);
@@ -285,8 +285,13 @@ export default function DetailScreen({ inspiration, onBack, onNavigate, onUserCl
                 return (
                   <div key={comment.id} className="space-y-4">
                     <div className="flex gap-3">
-                      <img src={uAvatar} className="size-10 rounded-full bg-slate-100 cursor-pointer" referrerPolicy="no-referrer"
-                        onClick={() = loading="lazy" /> onUserClick && onUserClick(userObj(uName, uAvatar))} />
+                      <img
+                        src={uAvatar}
+                        className="size-10 rounded-full bg-slate-100 cursor-pointer"
+                        referrerPolicy="no-referrer"
+                        loading="lazy"
+                        onClick={() => onUserClick && onUserClick(userObj(uName, uAvatar))}
+                      />
                       <div className="flex-1 space-y-1">
                         <span className="font-bold cursor-pointer hover:text-primary transition-colors"
                           onClick={() => onUserClick && onUserClick(userObj(uName, uAvatar))}>{uName}</span>
@@ -309,7 +314,7 @@ export default function DetailScreen({ inspiration, onBack, onNavigate, onUserCl
                       return (
                         <div key={reply.id} className="pl-12 flex gap-3">
                           <img src={rAvatar} className="size-8 rounded-full bg-slate-100 cursor-pointer" referrerPolicy="no-referrer"
-                            onClick={() = loading="lazy" /> onUserClick && onUserClick(userObj(rName, rAvatar))} />
+                            onClick={() = loading = "lazy" /> onUserClick && onUserClick(userObj(rName, rAvatar))} />
                           <div className="flex-1 space-y-1">
                             <span className="font-bold text-sm cursor-pointer hover:text-primary transition-colors"
                               onClick={() => onUserClick && onUserClick(userObj(rName, rAvatar))}>{rName}</span>
