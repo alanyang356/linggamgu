@@ -32,7 +32,6 @@ function AppInner() {
   const [unreadUsers, setUnreadUsers] = useState<Set<string>>(new Set());
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [editingDraft, setEditingDraft] = useState<Draft | null>(null);
-  const [editingInspiration, setEditingInspiration] = useState<Inspiration | null>(null);
   const [unreadNotifCount, setUnreadNotifCount] = useState(0);
   const [squareRefreshKey, setSquareRefreshKey] = useState(0); // 发布后递增，触发广场刷新
 
@@ -44,16 +43,19 @@ function AppInner() {
   }, [supabaseUser]);
 
   // Poll unread notifications
+  const pollNotifCount = React.useCallback(async () => {
+    if (!supabaseUser) return;
+    const count = await getUnreadNotificationsCount(supabaseUser.id);
+    setUnreadNotifCount(count);
+  }, [supabaseUser]);
+
   useEffect(() => {
     if (!supabaseUser) return;
-    const poll = async () => {
-      const count = await getUnreadNotificationsCount(supabaseUser.id);
-      setUnreadNotifCount(count);
-    };
-    poll();
-    const interval = setInterval(poll, 30000);
+    pollNotifCount();
+    const interval = setInterval(pollNotifCount, 15000);
     return () => clearInterval(interval);
-  }, [supabaseUser]);
+  }, [supabaseUser, pollNotifCount]);
+
 
   if (isLoading) {
     return (
@@ -152,18 +154,14 @@ function AppInner() {
         return (
           <CreateScreen
             onClose={() => {
-              setCurrentScreen(editingInspiration ? 'detail' : 'square');
+              setCurrentScreen('square');
               setEditingDraft(null);
-              setEditingInspiration(null);
             }}
             onPublishSuccess={() => {
-              setSquareRefreshKey(k => k + 1);
-              refreshProfile();
-              if (editingInspiration) setCurrentScreen('square');
-              setEditingInspiration(null);
+              setSquareRefreshKey(k => k + 1); // 广场列表刷新
+              refreshProfile(); // 播种数更新
             }}
             initialDraft={editingDraft}
-            editingInspiration={editingInspiration}
             onSaveDraft={handleSaveDraft}
             currentUser={safeUser}
           />
@@ -173,7 +171,7 @@ function AppInner() {
           <NotificationsScreen
             onMessagesClick={() => setCurrentScreen('messages')}
             currentUserId={supabaseUser.id}
-            onRead={() => setUnreadNotifCount(0)}
+            onRead={() => setTimeout(pollNotifCount, 1000)}
           />
         );
       case 'messages':
@@ -288,10 +286,6 @@ function AppInner() {
             onBack={() => setCurrentScreen('square')}
             onNavigate={handleNavigate}
             onUserClick={handleSelectUser}
-            onEdit={(insp) => {
-              setEditingInspiration(insp);
-              setCurrentScreen('create');
-            }}
             currentUser={safeUser}
             currentUserId={supabaseUser.id}
           />
