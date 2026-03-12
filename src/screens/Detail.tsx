@@ -313,8 +313,13 @@ export default function DetailScreen({ inspiration, onBack, onNavigate, onUserCl
                       const rAvatar = rMe ? currentUser.avatar : reply.user.avatar;
                       return (
                         <div key={reply.id} className="pl-12 flex gap-3">
-                          <img src={rAvatar} className="size-8 rounded-full bg-slate-100 cursor-pointer" referrerPolicy="no-referrer"
-                            onClick={() = loading = "lazy" /> onUserClick && onUserClick(userObj(rName, rAvatar))} />
+                          <img
+                            src={rAvatar}
+                            className="size-8 rounded-full bg-slate-100 cursor-pointer"
+                            referrerPolicy="no-referrer"
+                            loading="lazy"
+                            onClick={() => onUserClick && onUserClick(userObj(rName, rAvatar))}
+                          />
                           <div className="flex-1 space-y-1">
                             <span className="font-bold text-sm cursor-pointer hover:text-primary transition-colors"
                               onClick={() => onUserClick && onUserClick(userObj(rName, rAvatar))}>{rName}</span>
