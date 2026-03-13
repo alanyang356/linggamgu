@@ -9,51 +9,48 @@ interface InspirationCardProps {
   onClick: () => void;
   onUserClick?: (user: any) => void;
   currentUser?: User;
-  onLikeChange?: (inspirationId: string, newLikeCount: number) => void;
+  onLikeChange?: (inspirationId: string, newLikeCount: number, isLiked: boolean) => void;
 }
 
 const InspirationCard: React.FC<InspirationCardProps> = ({ inspiration, onClick, onUserClick, currentUser, onLikeChange }) => {
-  const [isWatered, setIsWatered] = useState(false);
+  const [isWatered, setIsWatered] = useState<boolean | null>(null); // null = 未加载
   const [localLikes, setLocalLikes] = useState(inspiration.stats.likes);
-  const isProcessing = useRef(false); // 防止重复点击
+  const isProcessing = useRef(false);
 
   const isAuthorMe = currentUser && (inspiration.author.id === currentUser.id || inspiration.author.name === currentUser.name);
   const authorName = isAuthorMe ? currentUser.name : inspiration.author.name;
   const authorAvatar = isAuthorMe ? currentUser.avatar : inspiration.author.avatar;
 
-  // 初始化：读取真实点赞状态
+  // 初始化：从数据库读取真实点赞状态
   useEffect(() => {
     if (currentUser?.id) {
       hasLiked(inspiration.id, currentUser.id)
-        .then(setIsWatered)
-        .catch(() => {});
+        .then(liked => setIsWatered(liked))
+        .catch(() => setIsWatered(false));
+    } else {
+      setIsWatered(false);
     }
   }, [inspiration.id, currentUser?.id]);
 
-  // 同步父组件传入的最新likes数
+  // 父组件更新likes数时同步（比如详情页操作后回来）
   useEffect(() => {
     setLocalLikes(inspiration.stats.likes);
   }, [inspiration.stats.likes]);
 
   const handleWatering = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!currentUser?.id) return;
-    if (isProcessing.current) return; // 防止API未返回前重复点击
+    if (!currentUser?.id || isProcessing.current || isWatered === null) return;
     isProcessing.current = true;
 
-    const newWatered = !isWatered;
-    const newCount = newWatered ? localLikes + 1 : Math.max(0, localLikes - 1);
-    // 乐观更新UI
-    setIsWatered(newWatered);
-    setLocalLikes(newCount);
-
     try {
-      await likeInspiration(inspiration.id, currentUser.id);
-      onLikeChange?.(inspiration.id, newCount);
+      // 调用API，API内部以数据库状态为准决定加/减
+      const nowLiked = await likeInspiration(inspiration.id, currentUser.id);
+      // 用函数式更新避免stale closure，基于最新localLikes计算
+      setIsWatered(nowLiked);
+      setLocalLikes(prev => nowLiked ? prev + 1 : Math.max(0, prev - 1));
+      onLikeChange?.(inspiration.id, nowLiked ? localLikes + 1 : Math.max(0, localLikes - 1), nowLiked);
     } catch {
-      // API失败，回滚UI
-      setIsWatered(!newWatered);
-      setLocalLikes(localLikes);
+      // 失败不改变UI
     } finally {
       isProcessing.current = false;
     }
@@ -70,6 +67,8 @@ const InspirationCard: React.FC<InspirationCardProps> = ({ inspiration, onClick,
       });
     }
   };
+
+  const watered = isWatered === true;
 
   return (
     <motion.div
@@ -88,19 +87,20 @@ const InspirationCard: React.FC<InspirationCardProps> = ({ inspiration, onClick,
         <div className="absolute top-3 right-3">
           <button
             onClick={handleWatering}
+            disabled={isWatered === null}
             className={`size-10 backdrop-blur-sm rounded-full flex items-center justify-center shadow-sm transition-all duration-300 ${
-              isWatered ? 'bg-primary text-white scale-110' : 'bg-white/80 text-primary'
+              watered ? 'bg-primary text-white scale-110' : 'bg-white/80 text-primary'
             }`}
           >
             <AnimatePresence mode="wait">
               <motion.div
-                key={isWatered ? 'watered' : 'unwatered'}
+                key={watered ? 'watered' : 'unwatered'}
                 initial={{ scale: 0.5, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 1.5, opacity: 0 }}
                 transition={{ type: "spring", stiffness: 300, damping: 20 }}
               >
-                <Droplets size={20} fill={isWatered ? 'currentColor' : 'none'} />
+                <Droplets size={20} fill={watered ? 'currentColor' : 'none'} />
               </motion.div>
             </AnimatePresence>
           </button>

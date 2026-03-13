@@ -289,7 +289,7 @@ export async function updateInspiration(id: string, updates: {
 // =============================================
 
 export async function likeInspiration(inspirationId: string, userId: string): Promise<boolean> {
-  // Check if already liked
+  // 以数据库为准，先查真实点赞状态
   const { data: existing } = await supabase
     .from('likes')
     .select('id')
@@ -297,30 +297,31 @@ export async function likeInspiration(inspirationId: string, userId: string): Pr
     .eq('user_id', userId)
     .single();
 
+  // 获取当前真实likes_count
+  const { data: insp } = await supabase
+    .from('inspirations')
+    .select('likes_count')
+    .eq('id', inspirationId)
+    .single();
+
+  const currentCount = insp?.likes_count ?? 0;
+
   if (existing) {
-    // Unlike
+    // 已点赞 → 取消，只做一次删除 + 一次减法
     await supabase.from('likes').delete()
       .eq('inspiration_id', inspirationId)
       .eq('user_id', userId);
     await supabase.from('inspirations')
-      .update({ likes_count: supabase.rpc('decrement', { x: 1 }) as any })
+      .update({ likes_count: Math.max(0, currentCount - 1) })
       .eq('id', inspirationId);
-    // Use raw update for decrement
-    await supabase.rpc('decrement_likes', { inspiration_id: inspirationId }).catch(async () => {
-      const { data: insp } = await supabase.from('inspirations').select('likes_count').eq('id', inspirationId).single();
-      if (insp) {
-        await supabase.from('inspirations').update({ likes_count: Math.max(0, insp.likes_count - 1) }).eq('id', inspirationId);
-      }
-    });
-    return false; // now unliked
+    return false;
   } else {
-    // Like
+    // 未点赞 → 点赞，只做一次插入 + 一次加法
     await supabase.from('likes').insert({ inspiration_id: inspirationId, user_id: userId });
-    const { data: insp } = await supabase.from('inspirations').select('likes_count').eq('id', inspirationId).single();
-    if (insp) {
-      await supabase.from('inspirations').update({ likes_count: insp.likes_count + 1 }).eq('id', inspirationId);
-    }
-    return true; // now liked
+    await supabase.from('inspirations')
+      .update({ likes_count: currentCount + 1 })
+      .eq('id', inspirationId);
+    return true;
   }
 }
 

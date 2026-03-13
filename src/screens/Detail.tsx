@@ -12,6 +12,7 @@ interface DetailScreenProps {
   onEdit?: (inspiration: Inspiration) => void;
   currentUser?: User;
   currentUserId?: string;
+  onLikeUpdate?: (inspirationId: string, count: number, isLiked: boolean) => void;
 }
 
 interface DialogProps {
@@ -55,7 +56,7 @@ const InputDialog = ({ isOpen, onClose, title, placeholder, onSubmit }: DialogPr
   );
 };
 
-export default function DetailScreen({ inspiration, onBack, onNavigate, onUserClick, onEdit, currentUser, currentUserId }: DetailScreenProps) {
+export default function DetailScreen({ inspiration, onBack, onNavigate, onUserClick, onEdit, currentUser, currentUserId, onLikeUpdate }: DetailScreenProps) {
   const [isWatered, setIsWatered] = useState(false);
   const [likeCount, setLikeCount] = useState(inspiration.stats.likes);
   const [isHarvested, setIsHarvested] = useState(false);
@@ -97,13 +98,14 @@ export default function DetailScreen({ inspiration, onBack, onNavigate, onUserCl
   const handleAction = async (type: 'water' | 'fertilize' | 'harvest') => {
     if (!currentUserId) return;
     if (type === 'water') {
-      // 乐观更新
-      const newWatered = !isWatered;
-      setIsWatered(newWatered);
-      setLikeCount(prev => newWatered ? prev + 1 : Math.max(0, prev - 1));
       try {
-        await likeInspiration(inspiration.id, currentUserId);
-        if (newWatered && inspiration.author.id) {
+        // API内部以数据库状态为准，返回操作后的真实状态
+        const nowLiked = await likeInspiration(inspiration.id, currentUserId);
+        setIsWatered(nowLiked);
+        const newCount = nowLiked ? likeCount + 1 : Math.max(0, likeCount - 1);
+        setLikeCount(newCount);
+        onLikeUpdate?.(inspiration.id, newCount, nowLiked);
+        if (nowLiked && inspiration.author.id) {
           await createNotification({
             recipientId: inspiration.author.id, type: 'like',
             actorId: currentUserId, actorName: currentUser?.name || '用户',
@@ -112,11 +114,9 @@ export default function DetailScreen({ inspiration, onBack, onNavigate, onUserCl
             content: `浇灌了你的灵感《${inspiration.title}》`,
           });
         }
-        showToast(newWatered ? '💧 已浇水' : '取消浇水');
+        showToast(nowLiked ? '💧 已浇水' : '取消浇水');
       } catch {
-        // 失败回滚
-        setIsWatered(!newWatered);
-        setLikeCount(prev => newWatered ? Math.max(0, prev - 1) : prev + 1);
+        // 失败不改变UI
       }
     } else if (type === 'harvest') {
       const newHarvested = !isHarvested;

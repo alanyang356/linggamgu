@@ -8,12 +8,13 @@ interface SquareScreenProps {
   onSelect: (inspiration: Inspiration) => void;
   onUserClick?: (user: any) => void;
   currentUser?: User;
-  onMyInspirationsClick?: () => void; // 私密标签页点击"查看我的灵感"
+  onMyInspirationsClick?: () => void;
+  likeUpdates?: Record<string, { count: number; isLiked: boolean }>;
 }
 
 const PAGE_SIZE = 12;
 
-export default function SquareScreen({ onSelect, onUserClick, currentUser, onMyInspirationsClick }: SquareScreenProps) {
+export default function SquareScreen({ onSelect, onUserClick, currentUser, onMyInspirationsClick, likeUpdates }: SquareScreenProps) {
   const [activeTab, setActiveTab] = useState<'public' | 'private'>('public');
   const [inspirations, setInspirations] = useState<Inspiration[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -21,7 +22,7 @@ export default function SquareScreen({ onSelect, onUserClick, currentUser, onMyI
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(0);
 
-  const handleLikeChange = (inspirationId: string, newLikeCount: number) => {
+  const handleLikeChange = (inspirationId: string, newLikeCount: number, _isLiked?: boolean) => {
     setInspirations(prev => prev.map(item =>
       item.id === inspirationId
         ? { ...item, stats: { ...item.stats, likes: newLikeCount } }
@@ -121,7 +122,16 @@ export default function SquareScreen({ onSelect, onUserClick, currentUser, onMyI
         ) : filteredInspirations.length > 0 ? (
           <>
             {filteredInspirations.map((item) => (
-              <InspirationCard key={item.id} inspiration={item} onClick={() => onSelect(item)} onUserClick={onUserClick} currentUser={currentUser} onLikeChange={handleLikeChange} />
+              <InspirationCard
+                key={item.id}
+                inspiration={likeUpdates?.[item.id]
+                  ? { ...item, stats: { ...item.stats, likes: likeUpdates[item.id].count } }
+                  : item}
+                onClick={() => onSelect(item)}
+                onUserClick={onUserClick}
+                currentUser={currentUser}
+                onLikeChange={handleLikeChange}
+              />
             ))}
             {!searchQuery && selectedCategory === '全部' && hasMore && (
               <button onClick={handleLoadMore} disabled={isLoadingMore}
