@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Droplets } from 'lucide-react';
 import { Inspiration, User } from '../types';
@@ -15,12 +15,13 @@ interface InspirationCardProps {
 const InspirationCard: React.FC<InspirationCardProps> = ({ inspiration, onClick, onUserClick, currentUser, onLikeChange }) => {
   const [isWatered, setIsWatered] = useState(false);
   const [localLikes, setLocalLikes] = useState(inspiration.stats.likes);
+  const isProcessing = useRef(false); // 防止重复点击
 
   const isAuthorMe = currentUser && (inspiration.author.id === currentUser.id || inspiration.author.name === currentUser.name);
   const authorName = isAuthorMe ? currentUser.name : inspiration.author.name;
   const authorAvatar = isAuthorMe ? currentUser.avatar : inspiration.author.avatar;
 
-  // 初始化时读取真实点赞状态
+  // 初始化：读取真实点赞状态
   useEffect(() => {
     if (currentUser?.id) {
       hasLiked(inspiration.id, currentUser.id)
@@ -29,7 +30,7 @@ const InspirationCard: React.FC<InspirationCardProps> = ({ inspiration, onClick,
     }
   }, [inspiration.id, currentUser?.id]);
 
-  // 同步外部likes变化
+  // 同步父组件传入的最新likes数
   useEffect(() => {
     setLocalLikes(inspiration.stats.likes);
   }, [inspiration.stats.likes]);
@@ -37,10 +38,12 @@ const InspirationCard: React.FC<InspirationCardProps> = ({ inspiration, onClick,
   const handleWatering = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!currentUser?.id) return;
+    if (isProcessing.current) return; // 防止API未返回前重复点击
+    isProcessing.current = true;
 
-    // 乐观更新，支持取消
     const newWatered = !isWatered;
     const newCount = newWatered ? localLikes + 1 : Math.max(0, localLikes - 1);
+    // 乐观更新UI
     setIsWatered(newWatered);
     setLocalLikes(newCount);
 
@@ -48,9 +51,11 @@ const InspirationCard: React.FC<InspirationCardProps> = ({ inspiration, onClick,
       await likeInspiration(inspiration.id, currentUser.id);
       onLikeChange?.(inspiration.id, newCount);
     } catch {
-      // 失败回滚
+      // API失败，回滚UI
       setIsWatered(!newWatered);
       setLocalLikes(localLikes);
+    } finally {
+      isProcessing.current = false;
     }
   };
 

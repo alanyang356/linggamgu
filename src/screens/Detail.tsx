@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ArrowLeft, Share2, Droplets, Sprout, Wheat, X, Send, Loader2, Trash2, Edit2 } from 'lucide-react';
 import { Inspiration, Screen, User } from '../types';
-import { likeInspiration, collectInspiration, hasLiked, hasCollected, getComments, addComment, deleteComment, createNotification } from '../lib/api';
+import { likeInspiration, collectInspiration, hasLiked, hasCollected, getComments, addComment, deleteComment, createNotification, getInspiration } from '../lib/api';
 
 interface DetailScreenProps {
   inspiration: Inspiration;
@@ -72,12 +72,16 @@ export default function DetailScreen({ inspiration, onBack, onNavigate, onUserCl
   const authorName = isAuthorMe ? currentUser.name : inspiration.author.name;
   const authorAvatar = isAuthorMe ? currentUser.avatar : inspiration.author.avatar;
 
-  // 进入页面时：读取真实点赞/收藏状态 + 评论列表
+  // 进入页面时：读取真实点赞/收藏状态 + 最新likes数 + 评论列表
   useEffect(() => {
     if (currentUserId) {
       hasLiked(inspiration.id, currentUserId).then(setIsWatered).catch(() => { });
       hasCollected(inspiration.id, currentUserId).then(setIsHarvested).catch(() => { });
     }
+    // 重新拉取最新likes数，防止从广场卡片带来的旧数据
+    getInspiration(inspiration.id).then(latest => {
+      if (latest) setLikeCount(latest.stats.likes);
+    }).catch(() => {});
     getComments(inspiration.id)
       .then(setComments)
       .catch(() => setComments(inspiration.comments || []))
