@@ -20,6 +20,14 @@ export default function SquareScreen({ onSelect, onUserClick, currentUser, onMyI
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(0);
+
+  const handleLikeChange = (inspirationId: string, newLikeCount: number) => {
+    setInspirations(prev => prev.map(item =>
+      item.id === inspirationId
+        ? { ...item, stats: { ...item.stats, likes: newLikeCount } }
+        : item
+    ));
+  };
   const [selectedCategory, setSelectedCategory] = useState('全部');
   const [searchQuery, setSearchQuery] = useState('');
   const categories = ['全部', '#旅行', '#学习', '#工作', '#创作', '#美食', '#生活'];
@@ -113,7 +121,7 @@ export default function SquareScreen({ onSelect, onUserClick, currentUser, onMyI
         ) : filteredInspirations.length > 0 ? (
           <>
             {filteredInspirations.map((item) => (
-              <InspirationCard key={item.id} inspiration={item} onClick={() => onSelect(item)} onUserClick={onUserClick} currentUser={currentUser} />
+              <InspirationCard key={item.id} inspiration={item} onClick={() => onSelect(item)} onUserClick={onUserClick} currentUser={currentUser} onLikeChange={handleLikeChange} />
             ))}
             {!searchQuery && selectedCategory === '全部' && hasMore && (
               <button onClick={handleLoadMore} disabled={isLoadingMore}

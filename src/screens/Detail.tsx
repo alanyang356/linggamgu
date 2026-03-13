@@ -38,7 +38,7 @@ const InputDialog = ({ isOpen, onClose, title, placeholder, onSubmit }: DialogPr
     <AnimatePresence>
       <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
         <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
-          className="w-full max-w-lg bg-white rounded-t-3xl sm:rounded-3xl p-6 pb-10 shadow-2xl">
+          className="w-full max-w-lg bg-white rounded-t-3xl sm:rounded-3xl p-6 pb-32 shadow-2xl">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-xl font-bold">{title}</h3>
             <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition-colors"><X size={20} /></button>

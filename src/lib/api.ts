@@ -759,6 +759,7 @@ function mapInspiration(item: any): Inspiration {
     },
     content: item.content,
     quote: item.quote,
+    visibility: item.visibility || 'public',
   };
 }
 

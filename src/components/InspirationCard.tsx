@@ -1,16 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Droplets } from 'lucide-react';
 import { Inspiration, User } from '../types';
+import { likeInspiration, hasLiked } from '../lib/api';
 
 interface InspirationCardProps {
   inspiration: Inspiration;
   onClick: () => void;
   onUserClick?: (user: any) => void;
   currentUser?: User;
+  onLikeChange?: (inspirationId: string, newLikeCount: number) => void;
 }
 
-const InspirationCard: React.FC<InspirationCardProps> = ({ inspiration, onClick, onUserClick, currentUser }) => {
+const InspirationCard: React.FC<InspirationCardProps> = ({ inspiration, onClick, onUserClick, currentUser, onLikeChange }) => {
   const [isWatered, setIsWatered] = useState(false);
   const [localLikes, setLocalLikes] = useState(inspiration.stats.likes);
 
@@ -18,24 +20,37 @@ const InspirationCard: React.FC<InspirationCardProps> = ({ inspiration, onClick,
   const authorName = isAuthorMe ? currentUser.name : inspiration.author.name;
   const authorAvatar = isAuthorMe ? currentUser.avatar : inspiration.author.avatar;
 
+  // 初始化时读取真实点赞状态
+  useEffect(() => {
+    if (currentUser?.id) {
+      hasLiked(inspiration.id, currentUser.id)
+        .then(setIsWatered)
+        .catch(() => {});
+    }
+  }, [inspiration.id, currentUser?.id]);
+
+  // 同步外部likes变化
+  useEffect(() => {
+    setLocalLikes(inspiration.stats.likes);
+  }, [inspiration.stats.likes]);
+
   const handleWatering = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!isWatered) {
-      setIsWatered(true);
-      setLocalLikes(prev => prev + 1);
-      try {
-        await fetch(`/api/inspirations/${inspiration.id}/like`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            userName: currentUser?.name || '匿名用户',
-            userAvatar: currentUser?.avatar || '',
-            title: inspiration.title
-          })
-        });
-      } catch (error) {
-        console.error('Failed to water:', error);
-      }
+    if (!currentUser?.id) return;
+
+    // 乐观更新，支持取消
+    const newWatered = !isWatered;
+    const newCount = newWatered ? localLikes + 1 : Math.max(0, localLikes - 1);
+    setIsWatered(newWatered);
+    setLocalLikes(newCount);
+
+    try {
+      await likeInspiration(inspiration.id, currentUser.id);
+      onLikeChange?.(inspiration.id, newCount);
+    } catch {
+      // 失败回滚
+      setIsWatered(!newWatered);
+      setLocalLikes(localLikes);
     }
   };
 
@@ -66,7 +81,7 @@ const InspirationCard: React.FC<InspirationCardProps> = ({ inspiration, onClick,
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           referrerPolicy="no-referrer" loading="lazy" />
         <div className="absolute top-3 right-3">
-          <button 
+          <button
             onClick={handleWatering}
             className={`size-10 backdrop-blur-sm rounded-full flex items-center justify-center shadow-sm transition-all duration-300 ${
               isWatered ? 'bg-primary text-white scale-110' : 'bg-white/80 text-primary'
@@ -107,7 +122,7 @@ const InspirationCard: React.FC<InspirationCardProps> = ({ inspiration, onClick,
             </span>
           ))}
         </div>
-        <div 
+        <div
           onClick={handleUserClick}
           className="flex items-center gap-2 mt-2 pt-3 border-t border-primary/5 hover:opacity-70 transition-opacity"
         >
