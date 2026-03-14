@@ -12,16 +12,59 @@ interface InspirationCardProps {
   onLikeChange?: (inspirationId: string, newLikeCount: number, isLiked: boolean) => void;
 }
 
+// 渐变色方案，按内容hash选择，保持同一条灵感颜色稳定
+const TEXT_GRADIENTS = [
+  { from: '#e8d5f5', to: '#c9b0e8', text: '#4a2d7a', tag: 'rgba(255,255,255,0.55)' },
+  { from: '#d0e8f5', to: '#a8ccec', text: '#1a3d6a', tag: 'rgba(255,255,255,0.55)' },
+  { from: '#fde8d0', to: '#f5c898', text: '#7a3d10', tag: 'rgba(255,255,255,0.55)' },
+  { from: '#d5f0e0', to: '#a8dfc0', text: '#1a5a38', tag: 'rgba(255,255,255,0.55)' },
+  { from: '#f5d5e8', to: '#eaabcc', text: '#6a1a48', tag: 'rgba(255,255,255,0.55)' },
+  { from: '#e8e8d5', to: '#d0ceaa', text: '#4a4820', tag: 'rgba(255,255,255,0.55)' },
+];
+
+function getGradient(id: string) {
+  const hash = id.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  return TEXT_GRADIENTS[hash % TEXT_GRADIENTS.length];
+}
+
+// 提取文本的关键片段：取最长的一句或前30字
+function extractKeyPhrase(text: string): { main: string; rest: string } {
+  if (!text) return { main: '', rest: '' };
+
+  // 按句号、感叹号、问号分割
+  const sentences = text.split(/[。！？!?]/).filter(s => s.trim().length > 2);
+
+  if (sentences.length > 1) {
+    // 有多句：取最长的一句作为主要展示
+    const longest = sentences.reduce((a, b) => a.length >= b.length ? a : b).trim();
+    const rest = text.replace(longest, '').replace(/[。！？!?]/g, '').trim();
+    if (longest.length <= 30) {
+      return { main: longest, rest: rest.slice(0, 25) };
+    }
+    return { main: longest.slice(0, 28) + '...', rest: '' };
+  }
+
+  // 单句或无标点：直接截取
+  if (text.length <= 30) {
+    return { main: text, rest: '' };
+  }
+  // 长文本：取前20字为主，剩余为副
+  return { main: text.slice(0, 20), rest: text.slice(20, 40) + (text.length > 40 ? '...' : '') };
+}
+
 const InspirationCard: React.FC<InspirationCardProps> = ({ inspiration, onClick, onUserClick, currentUser, onLikeChange }) => {
-  const [isWatered, setIsWatered] = useState<boolean | null>(null); // null = 未加载
+  const [isWatered, setIsWatered] = useState<boolean | null>(null);
   const [localLikes, setLocalLikes] = useState(inspiration.stats.likes);
   const isProcessing = useRef(false);
+
+  const hasImage = !!inspiration.image;
+  const gradient = getGradient(inspiration.id);
+  const { main, rest } = extractKeyPhrase(inspiration.description || inspiration.title || '');
 
   const isAuthorMe = currentUser && (inspiration.author.id === currentUser.id || inspiration.author.name === currentUser.name);
   const authorName = isAuthorMe ? currentUser.name : inspiration.author.name;
   const authorAvatar = isAuthorMe ? currentUser.avatar : inspiration.author.avatar;
 
-  // 初始化：从数据库读取真实点赞状态
   useEffect(() => {
     if (currentUser?.id) {
       hasLiked(inspiration.id, currentUser.id)
@@ -32,7 +75,6 @@ const InspirationCard: React.FC<InspirationCardProps> = ({ inspiration, onClick,
     }
   }, [inspiration.id, currentUser?.id]);
 
-  // 父组件更新likes数时同步（比如详情页操作后回来）
   useEffect(() => {
     setLocalLikes(inspiration.stats.likes);
   }, [inspiration.stats.likes]);
@@ -41,11 +83,8 @@ const InspirationCard: React.FC<InspirationCardProps> = ({ inspiration, onClick,
     e.stopPropagation();
     if (!currentUser?.id || isProcessing.current || isWatered === null) return;
     isProcessing.current = true;
-
     try {
-      // 调用API，API内部以数据库状态为准决定加/减
       const nowLiked = await likeInspiration(inspiration.id, currentUser.id);
-      // 用函数式更新避免stale closure，基于最新localLikes计算
       setIsWatered(nowLiked);
       setLocalLikes(prev => nowLiked ? prev + 1 : Math.max(0, prev - 1));
       onLikeChange?.(inspiration.id, nowLiked ? localLikes + 1 : Math.max(0, localLikes - 1), nowLiked);
@@ -78,12 +117,62 @@ const InspirationCard: React.FC<InspirationCardProps> = ({ inspiration, onClick,
       onClick={onClick}
       className="flex flex-col bg-white rounded-2xl overflow-hidden shadow-sm border border-primary/5 cursor-pointer group"
     >
+      {/* 封面区域 */}
       <div className="relative aspect-[4/3] overflow-hidden">
-        <img
-          src={inspiration.image}
-          alt={inspiration.title}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-          referrerPolicy="no-referrer" loading="lazy" />
+        {hasImage ? (
+          <img
+            src={inspiration.image}
+            alt={inspiration.title}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            referrerPolicy="no-referrer" loading="lazy" />
+        ) : (
+          /* 纯文字卡片：渐变背景 + 关键词放大 */
+          <div
+            className="w-full h-full flex flex-col items-center justify-center px-4 py-5 transition-transform duration-500 group-hover:scale-[1.02]"
+            style={{ background: `linear-gradient(145deg, ${gradient.from} 0%, ${gradient.to} 100%)` }}
+          >
+            {/* 装饰引号 */}
+            <span
+              className="text-5xl font-serif leading-none mb-1 opacity-30 select-none"
+              style={{ color: gradient.text }}
+            >"</span>
+
+            {/* 主要文字：大字号 */}
+            <p
+              className="text-center font-bold leading-snug"
+              style={{ color: gradient.text, fontSize: main.length <= 12 ? '18px' : main.length <= 20 ? '16px' : '14px', lineHeight: 1.5 }}
+            >
+              {main}
+            </p>
+
+            {/* 副文字：小字号，有内容才显示 */}
+            {rest && (
+              <p
+                className="text-center mt-2 opacity-70 line-clamp-2"
+                style={{ color: gradient.text, fontSize: '11px', lineHeight: 1.5 }}
+              >
+                {rest}
+              </p>
+            )}
+
+            {/* 标签 */}
+            {inspiration.tags.length > 0 && (
+              <div className="flex gap-1.5 mt-3 flex-wrap justify-center">
+                {inspiration.tags.slice(0, 2).map(tag => (
+                  <span
+                    key={tag}
+                    className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                    style={{ background: gradient.tag, color: gradient.text }}
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 浇水按钮 */}
         <div className="absolute top-3 right-3">
           <button
             onClick={handleWatering}
@@ -106,36 +195,35 @@ const InspirationCard: React.FC<InspirationCardProps> = ({ inspiration, onClick,
           </button>
         </div>
       </div>
+
+      {/* 卡片底部 */}
       <div className="p-4 flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <h3 className="text-slate-900 text-lg font-bold leading-tight">{inspiration.title}</h3>
-          <div className="flex items-center gap-1 text-primary">
+          <h3 className="text-slate-900 text-base font-bold leading-tight line-clamp-1">{inspiration.title}</h3>
+          <div className="flex items-center gap-1 text-primary flex-shrink-0">
             <Droplets size={14} fill="currentColor" />
             <span className="text-xs font-bold">{localLikes}</span>
           </div>
         </div>
-        <p className="text-slate-500 text-sm line-clamp-2 leading-relaxed">
-          {inspiration.description}
-        </p>
-        <div className="flex flex-wrap gap-2 mt-1">
-          {inspiration.tags.map((tag) => (
-            <span
-              key={tag}
-              className="text-[10px] uppercase tracking-wider font-bold text-primary bg-primary/10 px-2 py-1 rounded-full"
-            >
-              {tag}
-            </span>
-          ))}
-        </div>
+        {hasImage && (
+          <p className="text-slate-500 text-sm line-clamp-2 leading-relaxed">
+            {inspiration.description}
+          </p>
+        )}
+        {hasImage && (
+          <div className="flex flex-wrap gap-2 mt-1">
+            {inspiration.tags.map((tag) => (
+              <span key={tag} className="text-[10px] uppercase tracking-wider font-bold text-primary bg-primary/10 px-2 py-1 rounded-full">
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
         <div
           onClick={handleUserClick}
-          className="flex items-center gap-2 mt-2 pt-3 border-t border-primary/5 hover:opacity-70 transition-opacity"
+          className="flex items-center gap-2 mt-1 pt-3 border-t border-primary/5 hover:opacity-70 transition-opacity"
         >
-          <img
-            src={authorAvatar}
-            alt={authorName}
-            className="size-6 rounded-full bg-primary/20"
-            referrerPolicy="no-referrer" loading="lazy" />
+          <img src={authorAvatar} alt={authorName} className="size-6 rounded-full bg-primary/20" referrerPolicy="no-referrer" loading="lazy" />
           <p className="text-slate-400 text-xs font-medium">@{authorName}</p>
         </div>
       </div>

@@ -40,6 +40,10 @@ export default function CreateScreen({ onClose, initialDraft, editingInspiration
     editingInspiration ? (editingInspiration as any).visibility || 'public' : initialDraft?.visibility || 'public'
   );
   const [isPickingVisibility, setIsPickingVisibility] = useState(false);
+  // 发布模式：图文 or 纯文字
+  const [postMode, setPostMode] = useState<'image' | 'text'>(
+    editingInspiration?.image ? 'image' : (editingInspiration && !editingInspiration.image ? 'text' : 'image')
+  );
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishSuccess, setPublishSuccess] = useState(false);
 
@@ -297,8 +301,12 @@ export default function CreateScreen({ onClose, initialDraft, editingInspiration
   };
 
   const handlePublish = async () => {
-    if (!text.trim() && images.length === 0) {
-      alert('请输入内容或上传图片');
+    if (!text.trim()) {
+      alert('请输入灵感内容');
+      return;
+    }
+    if (postMode === 'image' && images.length === 0) {
+      alert('图文模式请添加一张图片，或切换为纯文字模式');
       return;
     }
 
@@ -400,6 +408,34 @@ export default function CreateScreen({ onClose, initialDraft, editingInspiration
           />
         </section>
 
+        {/* 模式切换 */}
+        <section className="space-y-3">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400 px-1">发布模式</h2>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setPostMode('image')}
+              className={`flex-1 h-12 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 transition-all ${
+                postMode === 'image'
+                  ? 'bg-primary text-white shadow-md shadow-primary/20'
+                  : 'bg-slate-100 text-slate-400 hover:bg-slate-200'
+              }`}
+            >
+              🖼️ 图文灵感
+            </button>
+            <button
+              onClick={() => setPostMode('text')}
+              className={`flex-1 h-12 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 transition-all ${
+                postMode === 'text'
+                  ? 'bg-primary text-white shadow-md shadow-primary/20'
+                  : 'bg-slate-100 text-slate-400 hover:bg-slate-200'
+              }`}
+            >
+              ✍️ 纯文字灵感
+            </button>
+          </div>
+        </section>
+
+        {postMode === 'image' && (
         <section className="space-y-4">
           <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400 px-1">上传灵感视觉</h2>
           <div className="grid grid-cols-3 gap-3">
@@ -440,6 +476,7 @@ export default function CreateScreen({ onClose, initialDraft, editingInspiration
             </AnimatePresence>
           </div>
         </section>
+        )}
 
         <section className="space-y-4">
           <div className="flex items-center justify-between px-1">

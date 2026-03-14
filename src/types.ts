@@ -25,7 +25,7 @@ export interface Inspiration {
   id: string;
   title: string;
   description: string;
-  image: string;
+  image?: string;
   tags: string[];
   author: {
     id?: string;
@@ -60,7 +60,7 @@ export interface Draft {
   title: string;
   content: string;
   time: string;
-  image: string;
+  image?: string;
   tags: string[];
   location?: string;
   visibility: 'public' | 'private';

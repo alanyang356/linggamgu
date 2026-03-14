@@ -57,6 +57,18 @@ const InputDialog = ({ isOpen, onClose, title, placeholder, onSubmit }: DialogPr
   );
 };
 
+const TEXT_GRADIENTS_DETAIL = [
+  { from: '#e8d5f5', to: '#c9b0e8', text: '#4a2d7a' },
+  { from: '#d0e8f5', to: '#a8ccec', text: '#1a3d6a' },
+  { from: '#fde8d0', to: '#f5c898', text: '#7a3d10' },
+  { from: '#d5f0e0', to: '#a8dfc0', text: '#1a5a38' },
+  { from: '#f5d5e8', to: '#eaabcc', text: '#6a1a48' },
+  { from: '#e8e8d5', to: '#d0ceaa', text: '#4a4820' },
+];
+function getGradientIndex(id: string) {
+  return id.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) % 6;
+}
+
 export default function DetailScreen({ inspiration, onBack, onNavigate, onUserClick, onEdit, currentUser, currentUserId, onLikeUpdate, onDelete }: DetailScreenProps) {
   const [isWatered, setIsWatered] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -272,7 +284,19 @@ export default function DetailScreen({ inspiration, onBack, onNavigate, onUserCl
       <div className="pt-20 px-4 space-y-6">
         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
           className="aspect-[4/5] rounded-[2.5rem] overflow-hidden shadow-xl">
-          <img src={inspiration.image} alt={inspiration.title} className="w-full h-full object-cover" loading="lazy" referrerPolicy="no-referrer" />
+          {inspiration.image ? (
+            <img src={inspiration.image} alt={inspiration.title} className="w-full h-full object-cover" loading="lazy" referrerPolicy="no-referrer" />
+          ) : (
+            <div className="w-full h-full flex flex-col items-center justify-center px-8 py-10"
+              style={{ background: `linear-gradient(145deg, ${TEXT_GRADIENTS_DETAIL[getGradientIndex(inspiration.id)].from} 0%, ${TEXT_GRADIENTS_DETAIL[getGradientIndex(inspiration.id)].to} 100%)` }}>
+              <span className="text-7xl font-serif leading-none mb-3 opacity-25 select-none"
+                style={{ color: TEXT_GRADIENTS_DETAIL[getGradientIndex(inspiration.id)].text }}>"</span>
+              <p className="text-center font-bold leading-relaxed text-xl"
+                style={{ color: TEXT_GRADIENTS_DETAIL[getGradientIndex(inspiration.id)].text }}>
+                {inspiration.description || inspiration.title}
+              </p>
+            </div>
+          )}
         </motion.div>
 
         <div className="space-y-4">
