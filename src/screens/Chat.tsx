@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, Send, Smile, Loader2 } from 'lucide-react';
 import { User } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
-import { getMessages, sendMessage, subscribeToMessages } from '../lib/api';
+import { getMessages, sendMessage, subscribeToMessages, markMessagesRead } from '../lib/api';
 
 interface Message {
   id: string;
@@ -48,8 +48,10 @@ export default function ChatScreen({ user, currentUser, onBack, onNewMessage }: 
   useEffect(() => {
     if (!currentUser?.id || !user?.id) return;
     setIsLoading(true);
-    getMessages(currentUser.id, user.id)
-      .then(data => {
+    Promise.all([
+      getMessages(currentUser.id, user.id),
+      markMessagesRead(currentUser.id, user.id),
+    ]).then(([data]) => {
         setMessages(data);
         scrollToBottom();
       })

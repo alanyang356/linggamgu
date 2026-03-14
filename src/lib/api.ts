@@ -706,6 +706,68 @@ export async function createNotification(params: {
 // MESSAGES
 // =============================================
 
+export async function getConversations(userId: string): Promise<{
+  user: { id: string; name: string; avatar: string };
+  lastMessage: string;
+  lastTime: string;
+  unread: number;
+}[]> {
+  // 拉取该用户参与的所有消息，按对话方分组，取最新一条
+  const { data, error } = await supabase
+    .from('messages')
+    .select('*')
+    .or(`sender_id.eq.${userId},recipient_id.eq.${userId}`)
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  if (!data || data.length === 0) return [];
+
+  // 找出所有对话方的 ID（去重）
+  const otherIds = new Set<string>();
+  data.forEach((m: any) => {
+    const otherId = m.sender_id === userId ? m.recipient_id : m.sender_id;
+    if (otherId) otherIds.add(otherId);
+  });
+
+  // 拉取对话方的 profile
+  const { data: profiles } = await supabase
+    .from('profiles')
+    .select('id, name, avatar')
+    .in('id', Array.from(otherIds));
+
+  const profileMap: Record<string, { id: string; name: string; avatar: string }> = {};
+  (profiles || []).forEach((p: any) => { profileMap[p.id] = p; });
+
+  // 每个对话方取最新一条消息
+  const seen = new Set<string>();
+  const conversations: {
+    user: { id: string; name: string; avatar: string };
+    lastMessage: string;
+    lastTime: string;
+    unread: number;
+  }[] = [];
+
+  for (const msg of data) {
+    const otherId = msg.sender_id === userId ? msg.recipient_id : msg.sender_id;
+    if (!otherId || seen.has(otherId)) continue;
+    seen.add(otherId);
+    const profile = profileMap[otherId];
+    if (!profile) continue;
+    // 统计未读数（对方发给我、且未读的）
+    const unread = data.filter(
+      (m: any) => m.sender_id === otherId && m.recipient_id === userId && !m.is_read
+    ).length;
+    conversations.push({
+      user: profile,
+      lastMessage: msg.content,
+      lastTime: msg.created_at,
+      unread,
+    });
+  }
+
+  return conversations;
+}
+
 export async function getMessages(userId: string, otherUserId: string) {
   const { data, error } = await supabase
     .from('messages')
@@ -727,6 +789,15 @@ export async function sendMessage(senderId: string, recipientId: string, content
     .single();
   if (error) throw error;
   return data;
+}
+
+export async function markMessagesRead(userId: string, otherUserId: string): Promise<void> {
+  await supabase
+    .from('messages')
+    .update({ is_read: true })
+    .eq('sender_id', otherUserId)
+    .eq('recipient_id', userId)
+    .eq('is_read', false);
 }
 
 export async function subscribeToMessages(

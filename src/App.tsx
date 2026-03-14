@@ -270,6 +270,7 @@ function AppInner() {
           <HomeScreen
             onPlant={() => setCurrentScreen('create')}
             onMatureClick={() => setCurrentScreen('mature-list')}
+            onSquareClick={() => setCurrentScreen('square')}
           />
         );
       case 'mature-list':
@@ -342,6 +343,7 @@ function AppInner() {
             }}
             onNotificationsClick={() => setCurrentScreen('notifications')}
             unreadUsers={unreadUsers}
+            currentUserId={supabaseUser.id}
           />
         );
       case 'profile':
@@ -456,6 +458,7 @@ function AppInner() {
           <HomeScreen
             onPlant={() => setCurrentScreen('create')}
             onMatureClick={() => setCurrentScreen('mature-list')}
+            onSquareClick={() => setCurrentScreen('square')}
           />
         );
     }

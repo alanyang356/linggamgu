@@ -6,6 +6,7 @@ import { getStats } from '../lib/api';
 interface HomeScreenProps {
   onPlant: () => void;
   onMatureClick: () => void;
+  onSquareClick: () => void;
 }
 
 const MushroomIcon = ({ className }: { className?: string }) => (
@@ -21,7 +22,7 @@ const MushroomIcon = ({ className }: { className?: string }) => (
   </div>
 );
 
-export default function HomeScreen({ onPlant, onMatureClick }: HomeScreenProps) {
+export default function HomeScreen({ onPlant, onMatureClick, onSquareClick }: HomeScreenProps) {
   const [stats, setStats] = useState({ grown: 0, total: 0 });
   const [isLoading, setIsLoading] = useState(true);
 
@@ -105,10 +106,13 @@ export default function HomeScreen({ onPlant, onMatureClick }: HomeScreenProps) 
               )}
               <div className="text-xs text-slate-400 font-medium uppercase tracking-wider mt-1">已成熟</div>
             </motion.button>
-            <div className="bg-white p-5 rounded-[2rem] border border-primary/5 shadow-sm flex flex-col items-center justify-center min-h-[100px]">
+            <motion.button
+              whileTap={{ scale: 0.97 }}
+              onClick={onSquareClick}
+              className="bg-white p-5 rounded-[2rem] border border-primary/5 shadow-sm flex flex-col items-center justify-center min-h-[100px] hover:bg-primary/5 transition-colors">
               <div className="text-3xl font-bold text-primary">{stats.total}</div>
               <div className="text-xs text-slate-400 font-medium uppercase tracking-wider mt-1">已播种</div>
-            </div>
+            </motion.button>
           </div>
         </div>
       </div>
