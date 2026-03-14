@@ -7,7 +7,7 @@ interface UserProfileProps {
   user: User;
   onBack: () => void;
   onInspirationClick: (inspiration: Inspiration) => void;
-  onChatClick?: () => void;
+  onChatClick?: (user?: any) => void;
   onFollowChange?: (isFollowing: boolean) => void;
   isFollowing?: boolean;
   currentUserId: string;
@@ -100,7 +100,7 @@ export default function UserProfile({ user, onBack, onInspirationClick, onChatCl
             </button>
             {onChatClick && (
               <button
-                onClick={onChatClick}
+                onClick={() => onChatClick?.(realUser)}
                 className="px-6 py-2 rounded-full font-bold text-sm bg-slate-100 text-slate-600 flex items-center gap-2"
               >
                 <MessageCircle size={16} />

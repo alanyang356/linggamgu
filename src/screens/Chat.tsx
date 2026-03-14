@@ -110,10 +110,12 @@ export default function ChatScreen({ user, currentUser, onBack, onNewMessage }: 
       const sent = await sendMessage(currentUser.id, user.id, text);
       // 用真实数据替换临时消息
       setMessages(prev => prev.map(m => m.id === optimistic.id ? sent : m));
-    } catch {
+    } catch (err) {
       // 失败：移除临时消息，恢复输入框
       setMessages(prev => prev.filter(m => m.id !== optimistic.id));
       setInputText(text);
+      console.error('发送失败:', err);
+      alert('发送失败，请检查网络后重试');
     } finally {
       setIsSending(false);
     }

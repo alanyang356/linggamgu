@@ -409,7 +409,10 @@ function AppInner() {
             user={selectedUser}
             onBack={() => setCurrentScreen(prevScreen)}
             onInspirationClick={handleSelectInspiration}
-            onChatClick={() => setCurrentScreen('chat')}
+            onChatClick={(chatUser?: any) => {
+              if (chatUser) setSelectedUser(chatUser);
+              setCurrentScreen('chat');
+            }}
             isFollowing={followedUsers.has(selectedUser.id)}
             onFollowChange={(isNowFollowing) => {
               setFollowedUsers(prev => {
