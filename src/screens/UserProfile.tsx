@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronLeft, MessageCircle, UserPlus, Check, Loader2 } from 'lucide-react';
 import { User, Inspiration } from '../types';
-import { followUser, createNotification, getInspirations } from '../lib/api';
+import { followUser, createNotification, getUserInspirations, getProfile } from '../lib/api';
 
 interface UserProfileProps {
   user: User;
@@ -17,14 +17,18 @@ export default function UserProfile({ user, onBack, onInspirationClick, onChatCl
   const [isFollowing, setIsFollowing] = useState(initialFollowing);
   const [userInspirations, setUserInspirations] = useState<Inspiration[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [realUser, setRealUser] = useState<User>(user); // 从数据库拉取真实profile
 
   useEffect(() => {
-    getInspirations('public')
-      .then(data => {
-        const theirs = data.filter(i => i.author.id === user.id || i.author.name === user.name);
-        setUserInspirations(theirs);
-      })
-      .catch(console.error)
+    setIsLoading(true);
+    // 并行拉取：真实profile数据 + 该用户的公开灵感
+    Promise.all([
+      user.id ? getProfile(user.id) : Promise.resolve(null),
+      user.id ? getUserInspirations(user.id) : Promise.resolve([]),
+    ]).then(([profile, inspirations]) => {
+      if (profile) setRealUser(profile);
+      setUserInspirations(inspirations);
+    }).catch(console.error)
       .finally(() => setIsLoading(false));
   }, [user.id]);
 
@@ -55,30 +59,30 @@ export default function UserProfile({ user, onBack, onInspirationClick, onChatCl
         <button onClick={onBack} className="size-10 flex items-center justify-center rounded-full hover:bg-primary/10 transition-colors">
           <ChevronLeft size={24} />
         </button>
-        <h1 className="text-lg font-bold">{user.name} 的主页</h1>
+        <h1 className="text-lg font-bold">{realUser.name} 的主页</h1>
         <div className="w-10" />
       </header>
 
       <main className="space-y-6">
         <section className="px-4 pt-6 flex flex-col items-center gap-4 text-center">
           <div className="size-24 rounded-full bg-primary/20 overflow-hidden border-2 border-primary/30">
-            <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" loading="lazy" />
+            <img src={realUser.avatar} alt={realUser.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" loading="lazy" />
           </div>
           <div>
-            <h2 className="text-xl font-bold">{user.name}</h2>
-            {user.bio && <p className="text-slate-400 text-sm mt-1">{user.bio}</p>}
+            <h2 className="text-xl font-bold">{realUser.name}</h2>
+            {realUser.bio && <p className="text-slate-400 text-sm mt-1">{realUser.bio}</p>}
           </div>
           <div className="flex gap-6">
             <div className="text-center">
-              <div className="font-bold text-lg">{user.stats.planted}</div>
+              <div className="font-bold text-lg">{userInspirations.length}</div>
               <div className="text-xs text-slate-400">播种</div>
             </div>
             <div className="text-center">
-              <div className="font-bold text-lg">{user.stats.harvested}</div>
+              <div className="font-bold text-lg">{realUser.stats.harvested}</div>
               <div className="text-xs text-slate-400">收获</div>
             </div>
             <div className="text-center">
-              <div className="font-bold text-lg">{user.stats.following}</div>
+              <div className="font-bold text-lg">{realUser.stats.following}</div>
               <div className="text-xs text-slate-400">关注</div>
             </div>
           </div>

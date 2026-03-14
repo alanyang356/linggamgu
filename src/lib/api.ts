@@ -244,12 +244,28 @@ export async function createInspiration(inspiration: {
     throw new Error(error.message || '发布失败');
   }
 
-  // 更新播种数（RPC不存在时静默跳过）
+  // 更新播种数：先尝试RPC，失败则手动+1
   if (inspiration.author.id) {
-    await supabase.rpc('increment_planted', { user_id: inspiration.author.id }).catch(() => {});
+    const rpcOk = await supabase.rpc('increment_planted', { user_id: inspiration.author.id })
+      .then(() => true).catch(() => false);
+    if (!rpcOk) {
+      const { data: p } = await supabase.from('profiles').select('planted_count').eq('id', inspiration.author.id).single();
+      if (p) await supabase.from('profiles').update({ planted_count: (p.planted_count || 0) + 1 }).eq('id', inspiration.author.id);
+    }
   }
 
   return mapInspiration(data);
+}
+
+export async function getUserInspirations(authorId: string): Promise<Inspiration[]> {
+  const { data, error } = await supabase
+    .from('inspirations')
+    .select('*')
+    .eq('author_id', authorId)
+    .eq('visibility', 'public')
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data || []).map(mapInspiration);
 }
 
 export async function setInspirationPrivate(id: string): Promise<void> {
@@ -261,8 +277,15 @@ export async function setInspirationPrivate(id: string): Promise<void> {
 }
 
 export async function deleteInspiration(id: string) {
+  // 先查作者id，删除后减planted_count
+  const { data: insp } = await supabase.from('inspirations').select('author_id').eq('id', id).single();
   const { error } = await supabase.from('inspirations').delete().eq('id', id);
   if (error) throw error;
+  // 减播种数
+  if (insp?.author_id) {
+    const { data: p } = await supabase.from('profiles').select('planted_count').eq('id', insp.author_id).single();
+    if (p) await supabase.from('profiles').update({ planted_count: Math.max(0, (p.planted_count || 0) - 1) }).eq('id', insp.author_id);
+  }
 }
 
 export async function updateInspiration(id: string, updates: {
