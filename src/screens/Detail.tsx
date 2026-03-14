@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowLeft, Share2, Droplets, Sprout, Wheat, X, Send, Loader2, Trash2, Edit2 } from 'lucide-react';
+import { ArrowLeft, Share2, Droplets, Sprout, Wheat, X, Send, Loader2, Trash2, Edit2, Link, Check } from 'lucide-react';
 import { Inspiration, Screen, User } from '../types';
-import { likeInspiration, collectInspiration, hasLiked, hasCollected, getComments, addComment, deleteComment, createNotification, getInspiration } from '../lib/api';
+import { likeInspiration, collectInspiration, hasLiked, hasCollected, getComments, addComment, deleteComment, createNotification, getInspiration, deleteInspiration, setInspirationPrivate } from '../lib/api';
 
 interface DetailScreenProps {
   inspiration: Inspiration;
@@ -13,6 +13,7 @@ interface DetailScreenProps {
   currentUser?: User;
   currentUserId?: string;
   onLikeUpdate?: (inspirationId: string, count: number, isLiked: boolean) => void;
+  onDelete?: (inspirationId: string) => void;
 }
 
 interface DialogProps {
@@ -56,8 +57,12 @@ const InputDialog = ({ isOpen, onClose, title, placeholder, onSubmit }: DialogPr
   );
 };
 
-export default function DetailScreen({ inspiration, onBack, onNavigate, onUserClick, onEdit, currentUser, currentUserId, onLikeUpdate }: DetailScreenProps) {
+export default function DetailScreen({ inspiration, onBack, onNavigate, onUserClick, onEdit, currentUser, currentUserId, onLikeUpdate, onDelete }: DetailScreenProps) {
   const [isWatered, setIsWatered] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteProcessing, setDeleteProcessing] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [likeCount, setLikeCount] = useState(inspiration.stats.likes);
   const [isHarvested, setIsHarvested] = useState(false);
   const [collectCount, setCollectCount] = useState(inspiration.stats.collections);
@@ -93,6 +98,54 @@ export default function DetailScreen({ inspiration, onBack, onNavigate, onUserCl
     setToastMsg(msg);
     setShowHarvestToast(true);
     setTimeout(() => setShowHarvestToast(false), 2000);
+  };
+
+  const handleDeleteAction = async (action: 'private' | 'delete') => {
+    if (!currentUserId) return;
+    setDeleteProcessing(true);
+    try {
+      if (action === 'private') {
+        await setInspirationPrivate(inspiration.id);
+        showToast('已转为私密灵感 🔒');
+      } else {
+        await deleteInspiration(inspiration.id);
+        showToast('已删除');
+      }
+      setShowDeleteModal(false);
+      setTimeout(() => onDelete?.(inspiration.id), 800);
+    } catch {
+      showToast('操作失败，请重试');
+    } finally {
+      setDeleteProcessing(false);
+    }
+  };
+
+  const shareUrl = `${window.location.origin}${window.location.pathname}?inspiration=${inspiration.id}`;
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // 降级方案：创建临时input复制
+      const input = document.createElement('input');
+      input.value = shareUrl;
+      document.body.appendChild(input);
+      input.select();
+      document.execCommand('copy');
+      document.body.removeChild(input);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const handleSystemShare = async () => {
+    try {
+      await navigator.share({ title: inspiration.title, text: inspiration.description, url: shareUrl });
+    } catch {
+      // 用户取消或不支持，不处理
+    }
   };
 
   const handleAction = async (type: 'water' | 'fertilize' | 'harvest') => {
@@ -203,8 +256,16 @@ export default function DetailScreen({ inspiration, onBack, onNavigate, onUserCl
               <Edit2 size={18} />
             </button>
           )}
-          <button onClick={() => { if (navigator.share) navigator.share({ title: inspiration.title, text: inspiration.description }); }}
-            className="size-10 flex items-center justify-center bg-slate-100 rounded-full"><Share2 size={20} /></button>
+          {isAuthorMe && (
+            <button onClick={() => setShowDeleteModal(true)}
+              className="size-10 flex items-center justify-center bg-slate-100 rounded-full hover:bg-red-50 hover:text-red-500 transition-colors">
+              <Trash2 size={18} />
+            </button>
+          )}
+          <button onClick={() => setShowShareModal(true)}
+            className="size-10 flex items-center justify-center bg-slate-100 rounded-full hover:bg-primary/10 hover:text-primary transition-colors">
+            <Share2 size={20} />
+          </button>
         </div>
       </header>
 
@@ -356,6 +417,90 @@ export default function DetailScreen({ inspiration, onBack, onNavigate, onUserCl
 
       <InputDialog isOpen={dialogConfig.isOpen} onClose={() => setDialogConfig({ ...dialogConfig, isOpen: false })}
         title={dialogConfig.title} placeholder={dialogConfig.placeholder} onSubmit={handleSubmitInput} />
+
+      {/* 分享弹窗 */}
+      <AnimatePresence>
+        {showShareModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm"
+            onClick={() => setShowShareModal(false)}>
+            <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+              className="w-full max-w-lg bg-white rounded-t-3xl sm:rounded-3xl p-6 pb-10 shadow-2xl"
+              onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-bold">分享灵感</h3>
+                <button onClick={() => setShowShareModal(false)} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
+                  <X size={20} />
+                </button>
+              </div>
+              {/* 链接预览 */}
+              <div className="flex items-center gap-3 bg-slate-50 rounded-2xl p-4 mb-6">
+                <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <Link size={18} className="text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-slate-400 mb-0.5">灵感链接</p>
+                  <p className="text-sm font-medium text-slate-700 truncate">{shareUrl}</p>
+                </div>
+              </div>
+              <div className="flex flex-col gap-3">
+                {/* 复制链接 - 微信/所有场景通用 */}
+                <button onClick={handleCopyLink}
+                  className={`w-full h-14 font-bold rounded-2xl flex items-center justify-center gap-2 transition-all duration-300 ${
+                    copied
+                      ? 'bg-green-50 text-green-600'
+                      : 'bg-primary text-white hover:bg-primary/90 shadow-lg shadow-primary/20'
+                  }`}>
+                  {copied ? <><Check size={20} />已复制链接！</> : <><Link size={20} />复制链接</>}
+                </button>
+                {/* 系统分享 - 微信内不显示 */}
+                {navigator.share && (
+                  <button onClick={handleSystemShare}
+                    className="w-full h-14 bg-slate-100 text-slate-700 font-bold rounded-2xl flex items-center justify-center gap-2 hover:bg-slate-200 transition-colors">
+                    <Share2 size={20} />更多分享方式
+                  </button>
+                )}
+              </div>
+              <p className="text-center text-xs text-slate-300 mt-4">复制链接后，可粘贴发送给微信好友</p>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 删除确认弹窗 */}
+      <AnimatePresence>
+        {showDeleteModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm"
+            onClick={() => !deleteProcessing && setShowDeleteModal(false)}>
+            <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+              className="w-full max-w-lg bg-white rounded-t-3xl sm:rounded-3xl p-6 pb-10 shadow-2xl"
+              onClick={e => e.stopPropagation()}>
+              <div className="flex flex-col items-center text-center gap-2 mb-6">
+                <div className="size-14 rounded-full bg-red-50 flex items-center justify-center mb-1">
+                  <Trash2 size={24} className="text-red-400" />
+                </div>
+                <h3 className="text-xl font-bold">要怎么处理这条灵感？</h3>
+                <p className="text-slate-400 text-sm">删除后无法恢复，转为私密则仅自己可见</p>
+              </div>
+              <div className="flex flex-col gap-3">
+                <button onClick={() => handleDeleteAction('private')} disabled={deleteProcessing}
+                  className="w-full h-14 bg-primary/10 text-primary font-bold rounded-2xl flex items-center justify-center gap-2 hover:bg-primary/20 transition-colors disabled:opacity-50">
+                  {deleteProcessing ? <Loader2 size={20} className="animate-spin" /> : '🔒 转为私密灵感'}
+                </button>
+                <button onClick={() => handleDeleteAction('delete')} disabled={deleteProcessing}
+                  className="w-full h-14 bg-red-50 text-red-500 font-bold rounded-2xl flex items-center justify-center gap-2 hover:bg-red-100 transition-colors disabled:opacity-50">
+                  {deleteProcessing ? <Loader2 size={20} className="animate-spin" /> : '🗑️ 直接删除'}
+                </button>
+                <button onClick={() => setShowDeleteModal(false)} disabled={deleteProcessing}
+                  className="w-full h-12 text-slate-400 font-medium rounded-2xl hover:bg-slate-50 transition-colors disabled:opacity-50">
+                  取消
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

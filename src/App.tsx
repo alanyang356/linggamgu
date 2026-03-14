@@ -19,7 +19,7 @@ import MessagesScreen from './screens/Messages';
 import MatureList from './screens/MatureList';
 import AuthScreen from './screens/Auth';
 import { Screen, Inspiration, User, Draft } from './types';
-import { getDrafts, saveDraft, deleteDraft, getUnreadNotificationsCount } from './lib/api';
+import { getDrafts, saveDraft, deleteDraft, getUnreadNotificationsCount, getInspiration } from './lib/api';
 import { Loader2 } from 'lucide-react';
 
 function AppInner() {
@@ -40,6 +40,27 @@ function AppInner() {
   const handleLikeUpdate = (inspirationId: string, count: number, isLiked: boolean) => {
     setLikeUpdates(prev => ({ ...prev, [inspirationId]: { count, isLiked } }));
   };
+
+  const handleDeleteInspiration = (_inspirationId: string) => {
+    setCurrentScreen('square');
+    setSquareRefreshKey(k => k + 1); // 刷新广场列表
+  };
+
+  // 启动时检测URL中的inspiration参数，支持分享链接直达
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const inspirationId = params.get('inspiration');
+    if (inspirationId && supabaseUser) {
+      getInspiration(inspirationId).then(insp => {
+        if (insp) {
+          setSelectedInspiration(insp);
+          setCurrentScreen('detail');
+          // 清除URL参数，保持URL干净
+          window.history.replaceState({}, '', window.location.pathname);
+        }
+      }).catch(() => {});
+    }
+  }, [supabaseUser]);
 
   // Load drafts from Supabase
   useEffect(() => {
@@ -301,6 +322,7 @@ function AppInner() {
             currentUser={safeUser}
             currentUserId={supabaseUser.id}
             onLikeUpdate={handleLikeUpdate}
+            onDelete={handleDeleteInspiration}
           />
         ) : null;
       default:

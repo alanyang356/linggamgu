@@ -252,6 +252,14 @@ export async function createInspiration(inspiration: {
   return mapInspiration(data);
 }
 
+export async function setInspirationPrivate(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('inspirations')
+    .update({ visibility: 'private' })
+    .eq('id', id);
+  if (error) throw error;
+}
+
 export async function deleteInspiration(id: string) {
   const { error } = await supabase.from('inspirations').delete().eq('id', id);
   if (error) throw error;
