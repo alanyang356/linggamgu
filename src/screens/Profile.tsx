@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Settings, Bookmark, FileText, ChevronRight, Lock, Loader2 } from 'lucide-react';
 import { Screen, Inspiration, User } from '../types';
-import { getMyInspirations } from '../lib/api';
+import { getMyInspirations, getFollowingList } from '../lib/api';
 
 interface ProfileScreenProps {
   user: User;
@@ -36,12 +36,17 @@ function profileKeyPhrase(text: string): string {
 export default function ProfileScreen({ user, onNavigate, onSelectInspiration, currentUserId }: ProfileScreenProps) {
   const [inspirations, setInspirations] = useState<Inspiration[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [followingCount, setFollowingCount] = useState(user.stats.following);
 
   useEffect(() => {
     getMyInspirations(currentUserId)
       .then(setInspirations)
       .catch(console.error)
       .finally(() => setIsLoading(false));
+    // 从数据库实时拉取真实关注数
+    getFollowingList(currentUserId)
+      .then(list => setFollowingCount(list.length))
+      .catch(() => {});
   }, [currentUserId]);
 
   const plantedCount = inspirations.length;
@@ -94,7 +99,7 @@ export default function ProfileScreen({ user, onNavigate, onSelectInspiration, c
               onClick={() => onNavigate('following-list')}
               className="flex-1 bg-white p-4 rounded-2xl border border-primary/10 flex flex-col items-center justify-center shadow-sm min-h-[80px] hover:bg-primary/5 transition-colors"
             >
-              <span className="text-2xl font-bold text-slate-900">{user.stats.following}</span>
+              <span className="text-2xl font-bold text-slate-900">{followingCount}</span>
               <span className="text-[10px] text-slate-400 uppercase tracking-wider mt-1">关注</span>
             </button>
           </div>
