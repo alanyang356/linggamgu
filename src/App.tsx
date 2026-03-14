@@ -414,11 +414,13 @@ function AppInner() {
               setCurrentScreen('chat');
             }}
             isFollowing={followedUsers.has(selectedUser.id)}
-            onFollowChange={(isNowFollowing) => {
+            onFollowChange={(isNowFollowing, targetId) => {
+              // 优先用回调传回来的真实UUID，fallback到selectedUser.id
+              const realTargetId = targetId || selectedUser.id;
               setFollowedUsers(prev => {
                 const next = new Set(prev);
-                if (isNowFollowing) next.add(selectedUser.id);
-                else next.delete(selectedUser.id);
+                if (isNowFollowing) next.add(realTargetId);
+                else next.delete(realTargetId);
                 return next;
               });
               refreshProfile(); // 刷新自己的关注数字

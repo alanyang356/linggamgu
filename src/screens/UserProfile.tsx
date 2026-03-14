@@ -8,7 +8,7 @@ interface UserProfileProps {
   onBack: () => void;
   onInspirationClick: (inspiration: Inspiration) => void;
   onChatClick?: (user?: any) => void;
-  onFollowChange?: (isFollowing: boolean) => void;
+  onFollowChange?: (isFollowing: boolean, targetId?: string) => void;
   isFollowing?: boolean;
   currentUserId: string;
 }
@@ -31,7 +31,11 @@ export default function UserProfile({ user, onBack, onInspirationClick, onChatCl
         // 用真实UUID重新校验关注状态
         if (profile.id && currentUserId) {
           checkIsFollowing(currentUserId, profile.id)
-            .then(setIsFollowing)
+            .then(result => {
+              setIsFollowing(result);
+              // 通知App用真实UUID同步followedUsers
+              onFollowChange?.(result, profile.id);
+            })
             .catch(() => {});
         }
       }
@@ -60,7 +64,7 @@ export default function UserProfile({ user, onBack, onInspirationClick, onChatCl
       console.error('Failed to follow:', error);
     }
     setIsFollowing(newFollowingState);
-    onFollowChange?.(newFollowingState);
+    onFollowChange?.(newFollowingState, realUser.id || user.id);
   };
 
   return (
