@@ -19,7 +19,7 @@ import MessagesScreen from './screens/Messages';
 import MatureList from './screens/MatureList';
 import AuthScreen from './screens/Auth';
 import { Screen, Inspiration, User, Draft } from './types';
-import { getDrafts, saveDraft, deleteDraft, getUnreadNotificationsCount, getInspiration } from './lib/api';
+import { getDrafts, saveDraft, deleteDraft, getUnreadNotificationsCount, getInspiration, getFollowingList } from './lib/api';
 import { Loader2 } from 'lucide-react';
 
 // 游客预览组件：未登录用户通过分享链接直达灵感详情
@@ -129,6 +129,7 @@ function AppInner() {
   const [selectedInspiration, setSelectedInspiration] = useState<Inspiration | null>(null);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [followedUsers, setFollowedUsers] = useState<Set<string>>(new Set());
+  const [prevScreen, setPrevScreen] = useState<Screen>('square'); // 记录进入UserProfile前的来源页
   const [unreadUsers, setUnreadUsers] = useState<Set<string>>(new Set());
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [editingDraft, setEditingDraft] = useState<Draft | null>(null);
@@ -145,6 +146,15 @@ function AppInner() {
     setCurrentScreen('my-inspirations'); // 删除后跳回我的灵感列表
     setSquareRefreshKey(k => k + 1); // 同时刷新广场
   };
+
+  // 启动时加载已关注用户列表
+  useEffect(() => {
+    if (supabaseUser) {
+      getFollowingList(supabaseUser.id)
+        .then(users => setFollowedUsers(new Set(users.map(u => u.id))))
+        .catch(() => {});
+    }
+  }, [supabaseUser]);
 
   // 启动时检测URL中的inspiration参数，支持分享链接直达
   useEffect(() => {
@@ -221,6 +231,7 @@ function AppInner() {
 
   const handleSelectUser = (user: User) => {
     setSelectedUser(user);
+    setPrevScreen(currentScreen); // 记录来源页
     setCurrentScreen('user-profile');
   };
 
@@ -394,17 +405,18 @@ function AppInner() {
         return selectedUser ? (
           <UserProfile
             user={selectedUser}
-            onBack={() => setCurrentScreen('following-list')}
+            onBack={() => setCurrentScreen(prevScreen)}
             onInspirationClick={handleSelectInspiration}
             onChatClick={() => setCurrentScreen('chat')}
             isFollowing={followedUsers.has(selectedUser.id)}
-            onFollowChange={(isFollowing) => {
+            onFollowChange={(isNowFollowing) => {
               setFollowedUsers(prev => {
                 const next = new Set(prev);
-                if (isFollowing) next.add(selectedUser.id);
+                if (isNowFollowing) next.add(selectedUser.id);
                 else next.delete(selectedUser.id);
                 return next;
               });
+              refreshProfile(); // 刷新自己的关注数字
             }}
             currentUserId={supabaseUser.id}
           />
