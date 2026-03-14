@@ -53,13 +53,7 @@ export default function NotificationsScreen({ onMessagesClick, currentUserId, on
 
   return (
     <div className="pb-32">
-      <header className="sticky top-0 z-10 bg-background-light/80 backdrop-blur-md px-4 py-4 flex items-center justify-center border-b border-primary/10 relative">
-        <button
-          onClick={onMessagesClick}
-          className="absolute left-4 text-sm text-slate-400 hover:text-primary transition-colors font-medium"
-        >
-          私信
-        </button>
+      <header className="sticky top-0 z-10 bg-background-light/80 backdrop-blur-md px-4 py-4 flex items-center justify-center border-b border-primary/10">
         <h1 className="text-lg font-bold">通知</h1>
       </header>
 

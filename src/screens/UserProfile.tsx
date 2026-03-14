@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronLeft, MessageCircle, UserPlus, Check, Loader2 } from 'lucide-react';
 import { User, Inspiration } from '../types';
-import { followUser, createNotification, getUserInspirations, getProfile } from '../lib/api';
+import { followUser, createNotification, getUserInspirations, getProfile, isFollowing as checkIsFollowing } from '../lib/api';
 
 interface UserProfileProps {
   user: User;
@@ -26,19 +26,29 @@ export default function UserProfile({ user, onBack, onInspirationClick, onChatCl
       user.id ? getProfile(user.id) : Promise.resolve(null),
       user.id ? getUserInspirations(user.id) : Promise.resolve([]),
     ]).then(([profile, inspirations]) => {
-      if (profile) setRealUser(profile);
+      if (profile) {
+        setRealUser(profile);
+        // 用真实UUID重新校验关注状态
+        if (profile.id && currentUserId) {
+          checkIsFollowing(currentUserId, profile.id)
+            .then(setIsFollowing)
+            .catch(() => {});
+        }
+      }
       setUserInspirations(inspirations);
     }).catch(console.error)
       .finally(() => setIsLoading(false));
   }, [user.id]);
 
   const handleFollow = async () => {
+    const targetId = realUser.id || user.id; // 优先用从数据库拉取的真实ID
+    if (!targetId) return;
     const newFollowingState = !isFollowing;
     try {
-      await followUser(currentUserId, user.id);
-      if (newFollowingState && user.id) {
+      await followUser(currentUserId, targetId);
+      if (newFollowingState) {
         await createNotification({
-          recipientId: user.id,
+          recipientId: targetId,
           type: 'follow',
           actorId: currentUserId,
           actorName: '',
@@ -98,15 +108,7 @@ export default function UserProfile({ user, onBack, onInspirationClick, onChatCl
               {isFollowing ? <Check size={16} /> : <UserPlus size={16} />}
               {isFollowing ? '已关注' : '关注'}
             </button>
-            {onChatClick && (
-              <button
-                onClick={() => onChatClick?.(realUser)}
-                className="px-6 py-2 rounded-full font-bold text-sm bg-slate-100 text-slate-600 flex items-center gap-2"
-              >
-                <MessageCircle size={16} />
-                私信
-              </button>
-            )}
+{/* 私信功能暂时关闭，待后续版本上线 */}
           </div>
         </section>
 

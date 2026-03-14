@@ -50,11 +50,11 @@ export default function Navigation({ currentScreen, onNavigate, unreadMessagesCo
         <button
           onClick={() => onNavigate('notifications')}
           className={`flex flex-col items-center gap-1 transition-colors relative ${
-            currentScreen === 'messages' || currentScreen === 'notifications' ? 'text-primary' : 'text-slate-400'
+            currentScreen === 'notifications' ? 'text-primary' : 'text-slate-400'
           }`}
         >
-          <Bell size={24} fill={currentScreen === 'messages' || currentScreen === 'notifications' ? 'currentColor' : 'none'} />
-          {hasUnread && currentScreen !== 'messages' && currentScreen !== 'notifications' && (
+          <Bell size={24} fill={currentScreen === 'notifications' ? 'currentColor' : 'none'} />
+          {unreadNotifCount > 0 && currentScreen !== 'notifications' && (
             <span className="absolute top-0 right-1 size-2 bg-red-500 rounded-full border border-white" />
           )}
           <span className="text-[10px] font-medium">消息</span>
