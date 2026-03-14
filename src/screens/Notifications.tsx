@@ -7,9 +7,10 @@ interface NotificationsScreenProps {
   onMessagesClick: () => void;
   currentUserId: string;
   onRead?: () => void;
+  onInspirationClick?: (inspirationId: string) => void;
 }
 
-export default function NotificationsScreen({ onMessagesClick, currentUserId, onRead }: NotificationsScreenProps) {
+export default function NotificationsScreen({ onMessagesClick, currentUserId, onRead, onInspirationClick }: NotificationsScreenProps) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [, setTick] = useState(0);
@@ -79,9 +80,10 @@ export default function NotificationsScreen({ onMessagesClick, currentUserId, on
           notifications.map((notification) => (
             <div
               key={notification.id}
+              onClick={() => notification.target_id && onInspirationClick?.(notification.target_id)}
               className={`flex items-start gap-4 p-4 bg-white rounded-2xl border border-primary/5 shadow-sm transition-all ${
                 notification.is_read === 0 ? 'ring-1 ring-primary/20' : ''
-              }`}
+              } ${notification.target_id && onInspirationClick ? 'cursor-pointer hover:bg-primary/5 active:scale-[0.98]' : ''}`}
             >
               <div className="size-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0 overflow-hidden">
                 {notification.user_avatar ? (

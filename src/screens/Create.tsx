@@ -99,7 +99,10 @@ export default function CreateScreen({ onClose, initialDraft, editingInspiration
       try {
         await onSaveDraft(draft);
         setDraftSaved(true);
-        setTimeout(() => setDraftSaved(false), 2000);
+        setTimeout(() => {
+          setDraftSaved(false);
+          onClose(); // 保存成功后退出
+        }, 800);
       } finally {
         setIsSavingDraft(false);
       }

@@ -22,6 +22,106 @@ import { Screen, Inspiration, User, Draft } from './types';
 import { getDrafts, saveDraft, deleteDraft, getUnreadNotificationsCount, getInspiration } from './lib/api';
 import { Loader2 } from 'lucide-react';
 
+// 游客预览组件：未登录用户通过分享链接直达灵感详情
+function GuestInspirationView({ inspirationId }: { inspirationId: string }) {
+  const [inspiration, setInspiration] = React.useState<Inspiration | null>(null);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    getInspiration(inspirationId)
+      .then(setInspiration)
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [inspirationId]);
+
+  const handleGoLogin = () => {
+    // 清除URL参数，跳转到登录页
+    window.history.replaceState({}, '', window.location.pathname);
+    window.location.reload();
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background-light">
+        <Loader2 size={32} className="animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!inspiration) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background-light gap-4 px-6">
+        <p className="text-slate-400 text-center">灵感不存在或已被删除</p>
+        <button onClick={handleGoLogin}
+          className="px-6 py-3 bg-primary text-white rounded-2xl font-bold">
+          进入灵感菇
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-white pb-32">
+      {/* 顶部导航 */}
+      <header className="fixed top-0 left-0 right-0 z-20 px-4 py-4 flex items-center justify-between bg-white/80 backdrop-blur-md">
+        <div className="text-lg font-bold text-primary">灵感菇</div>
+        <button onClick={handleGoLogin}
+          className="px-4 py-2 bg-primary text-white text-sm font-bold rounded-full">
+          登录 / 注册
+        </button>
+      </header>
+
+      <div className="pt-20 px-4 space-y-6">
+        {/* 封面图 */}
+        <div className="aspect-[4/5] rounded-[2.5rem] overflow-hidden shadow-xl">
+          <img src={inspiration.image} alt={inspiration.title}
+            className="w-full h-full object-cover" loading="lazy" referrerPolicy="no-referrer" />
+        </div>
+
+        {/* 标题和数字 */}
+        <div>
+          <h1 className="text-3xl font-black text-slate-900 leading-tight mb-2">{inspiration.title}</h1>
+          <div className="flex items-center gap-2 text-primary">
+            <span className="text-sm font-bold">💧 {inspiration.stats.likes} 次浇水</span>
+          </div>
+        </div>
+
+        {/* 作者 */}
+        <div className="flex items-center gap-3 py-3 border-t border-b border-slate-100">
+          <img src={inspiration.author.avatar} alt={inspiration.author.name}
+            className="size-10 rounded-full bg-slate-100" referrerPolicy="no-referrer" />
+          <div>
+            <p className="font-bold text-slate-900">{inspiration.author.name}</p>
+            <p className="text-xs text-slate-400">灵感播种人</p>
+          </div>
+        </div>
+
+        {/* 标签 */}
+        <div className="flex flex-wrap gap-2">
+          {inspiration.tags.map(tag => (
+            <span key={tag} className="text-xs font-bold text-primary bg-primary/10 px-3 py-1.5 rounded-full">
+              #{tag}
+            </span>
+          ))}
+        </div>
+
+        {/* 内容 */}
+        {inspiration.description && (
+          <p className="text-slate-600 leading-relaxed text-base">{inspiration.description}</p>
+        )}
+      </div>
+
+      {/* 底部引导注册 */}
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/95 backdrop-blur-md border-t border-slate-100">
+        <button onClick={handleGoLogin}
+          className="w-full h-14 bg-primary text-white font-bold rounded-2xl shadow-lg shadow-primary/20 text-base">
+          加入灵感菇，参与互动 🌱
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function AppInner() {
   const { currentUser, supabaseUser, isLoading, refreshProfile } = useAuth();
 
@@ -42,8 +142,8 @@ function AppInner() {
   };
 
   const handleDeleteInspiration = (_inspirationId: string) => {
-    setCurrentScreen('square');
-    setSquareRefreshKey(k => k + 1); // 刷新广场列表
+    setCurrentScreen('my-inspirations'); // 删除后跳回我的灵感列表
+    setSquareRefreshKey(k => k + 1); // 同时刷新广场
   };
 
   // 启动时检测URL中的inspiration参数，支持分享链接直达
@@ -90,6 +190,12 @@ function AppInner() {
   }
 
   if (!supabaseUser) {
+    // 检查是否是分享链接直达：有inspiration参数则先展示游客预览
+    const params = new URLSearchParams(window.location.search);
+    const sharedId = params.get('inspiration');
+    if (sharedId) {
+      return <GuestInspirationView inspirationId={sharedId} />;
+    }
     return <AuthScreen onSuccess={() => {}} />;
   }
 
@@ -201,6 +307,14 @@ function AppInner() {
             onMessagesClick={() => setCurrentScreen('messages')}
             currentUserId={supabaseUser.id}
             onRead={() => setUnreadNotifCount(0)}
+            onInspirationClick={(id) => {
+              getInspiration(id).then(insp => {
+                if (insp) {
+                  setSelectedInspiration(insp);
+                  setCurrentScreen('detail');
+                }
+              }).catch(() => {});
+            }}
           />
         );
       case 'messages':
