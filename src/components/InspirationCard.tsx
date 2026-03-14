@@ -31,25 +31,27 @@ function getGradient(id: string) {
 function extractKeyPhrase(text: string): { main: string; rest: string } {
   if (!text) return { main: '', rest: '' };
 
-  // 按句号、感叹号、问号分割
-  const sentences = text.split(/[。！？!?]/).filter(s => s.trim().length > 2);
+  // 按标点分句
+  const sentences = text.split(/[。！？!?，,]/).map(s => s.trim()).filter(s => s.length > 1);
 
   if (sentences.length > 1) {
-    // 有多句：取最长的一句作为主要展示
-    const longest = sentences.reduce((a, b) => a.length >= b.length ? a : b).trim();
-    const rest = text.replace(longest, '').replace(/[。！？!?]/g, '').trim();
-    if (longest.length <= 30) {
-      return { main: longest, rest: rest.slice(0, 25) };
+    // 优先取长度适中（8-18字）的句子，最有冲击力
+    const ideal = sentences.find(s => s.length >= 8 && s.length <= 18);
+    if (ideal) {
+      const rest = sentences.filter(s => s !== ideal).join('，').slice(0, 20);
+      return { main: ideal, rest };
     }
-    return { main: longest.slice(0, 28) + '...', rest: '' };
+    // 没有理想句子则取最短的（更有力）
+    const shortest = sentences.reduce((a, b) => a.length <= b.length ? a : b).trim();
+    if (shortest.length <= 22) {
+      return { main: shortest, rest: '' };
+    }
+    return { main: shortest.slice(0, 18) + '...', rest: '' };
   }
 
-  // 单句或无标点：直接截取
-  if (text.length <= 30) {
-    return { main: text, rest: '' };
-  }
-  // 长文本：取前20字为主，剩余为副
-  return { main: text.slice(0, 20), rest: text.slice(20, 40) + (text.length > 40 ? '...' : '') };
+  // 单句：≤18字全显，否则取前16字
+  if (text.length <= 18) return { main: text, rest: '' };
+  return { main: text.slice(0, 16) + '...', rest: text.slice(16, 30) + (text.length > 30 ? '...' : '') };
 }
 
 const InspirationCard: React.FC<InspirationCardProps> = ({ inspiration, onClick, onUserClick, currentUser, onLikeChange }) => {
@@ -140,7 +142,7 @@ const InspirationCard: React.FC<InspirationCardProps> = ({ inspiration, onClick,
             {/* 主要文字：大字号 */}
             <p
               className="text-center font-bold leading-snug"
-              style={{ color: gradient.text, fontSize: main.length <= 12 ? '18px' : main.length <= 20 ? '16px' : '14px', lineHeight: 1.5 }}
+              style={{ color: gradient.text, fontSize: main.length <= 8 ? '22px' : main.length <= 14 ? '19px' : main.length <= 18 ? '16px' : '14px', lineHeight: 1.5 }}
             >
               {main}
             </p>

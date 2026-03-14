@@ -10,6 +10,29 @@ interface ProfileScreenProps {
   currentUserId: string;
 }
 
+const PROFILE_GRADIENTS = [
+  { from: '#e8d5f5', to: '#c9b0e8', text: '#4a2d7a' },
+  { from: '#d0e8f5', to: '#a8ccec', text: '#1a3d6a' },
+  { from: '#fde8d0', to: '#f5c898', text: '#7a3d10' },
+  { from: '#d5f0e0', to: '#a8dfc0', text: '#1a5a38' },
+  { from: '#f5d5e8', to: '#eaabcc', text: '#6a1a48' },
+  { from: '#e8e8d5', to: '#d0ceaa', text: '#4a4820' },
+];
+function profileGradient(id: string) {
+  const hash = id.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  return PROFILE_GRADIENTS[hash % PROFILE_GRADIENTS.length];
+}
+function profileKeyPhrase(text: string): string {
+  if (!text) return '';
+  const sentences = text.split(/[。！？!?，,]/).map(s => s.trim()).filter(s => s.length > 1);
+  if (sentences.length > 1) {
+    const ideal = sentences.find(s => s.length >= 6 && s.length <= 14);
+    if (ideal) return ideal;
+    return sentences.reduce((a, b) => a.length <= b.length ? a : b).slice(0, 14);
+  }
+  return text.length <= 14 ? text : text.slice(0, 12) + '...';
+}
+
 export default function ProfileScreen({ user, onNavigate, onSelectInspiration, currentUserId }: ProfileScreenProps) {
   const [inspirations, setInspirations] = useState<Inspiration[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -132,11 +155,27 @@ export default function ProfileScreen({ user, onNavigate, onSelectInspiration, c
                           <Lock size={28} className="text-slate-400" />
                           <span className="text-xs text-slate-400">私密灵感</span>
                         </div>
-                      ) : (
+                      ) : item.image ? (
                         <>
                           <img src={item.image} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" referrerPolicy="no-referrer" loading="lazy" />
                           <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
                         </>
+                      ) : (
+                        // 纯文字灵感：渐变底色 + 关键词
+                        (() => {
+                          const g = profileGradient(item.id);
+                          const phrase = profileKeyPhrase(item.description || item.title || '');
+                          return (
+                            <div className="w-full h-full flex flex-col items-center justify-center px-3 py-4"
+                              style={{ background: `linear-gradient(145deg, ${g.from} 0%, ${g.to} 100%)` }}>
+                              <span className="text-3xl font-serif opacity-25 leading-none mb-1 select-none" style={{ color: g.text }}>"</span>
+                              <p className="text-center font-bold leading-snug"
+                                style={{ color: g.text, fontSize: phrase.length <= 8 ? '14px' : phrase.length <= 12 ? '12px' : '11px' }}>
+                                {phrase}
+                              </p>
+                            </div>
+                          );
+                        })()
                       )}
                     </div>
                     <p className="font-semibold text-sm line-clamp-1 px-1 text-slate-400">
