@@ -552,16 +552,26 @@ export async function isFollowing(followerId: string, followingId: string): Prom
 }
 
 export async function getFollowingList(userId: string): Promise<User[]> {
-  const { data, error } = await supabase
+  // 第一步：拿到所有 following_id
+  const { data: follows, error } = await supabase
     .from('follows')
-    .select('following_id, profiles!follows_following_id_fkey(*)')
+    .select('following_id')
     .eq('follower_id', userId);
 
   if (error) throw error;
-  return (data || [])
-    .map((item: any) => item.profiles)
-    .filter(Boolean)
-    .map(mapProfile);
+  if (!follows || follows.length === 0) return [];
+
+  const ids = follows.map((f: any) => f.following_id).filter(Boolean);
+  if (ids.length === 0) return [];
+
+  // 第二步：用 in 查询批量拉取 profiles
+  const { data: profiles, error: profilesError } = await supabase
+    .from('profiles')
+    .select('*')
+    .in('id', ids);
+
+  if (profilesError) throw profilesError;
+  return (profiles || []).map(mapProfile);
 }
 
 // =============================================

@@ -89,12 +89,15 @@ export default function ProfileScreen({ user, onNavigate, onSelectInspiration, c
               )}
               <span className="text-[10px] text-slate-400 uppercase tracking-wider mt-1">播种</span>
             </button>
-            <div className="flex-1 bg-white p-4 rounded-2xl border border-primary/10 flex flex-col items-center justify-center shadow-sm min-h-[80px]">
+            <button
+              onClick={() => onNavigate('collections')}
+              className="flex-1 bg-white p-4 rounded-2xl border border-primary/10 flex flex-col items-center justify-center shadow-sm min-h-[80px] hover:bg-primary/5 transition-colors"
+            >
               {isLoading ? <Loader2 size={16} className="animate-spin text-primary/30" /> : (
                 <span className="text-2xl font-bold text-slate-900">{harvestedCount}</span>
               )}
               <span className="text-[10px] text-slate-400 uppercase tracking-wider mt-1">收获</span>
-            </div>
+            </button>
             <button
               onClick={() => onNavigate('following-list')}
               className="flex-1 bg-white p-4 rounded-2xl border border-primary/10 flex flex-col items-center justify-center shadow-sm min-h-[80px] hover:bg-primary/5 transition-colors"
