@@ -171,13 +171,11 @@ export default function DetailScreen({ inspiration, onBack, onNavigate, onUserCl
       if (isWaterLoading) return; // 初始化未完成，禁止操作
       setIsWaterLoading(true);
       try {
-        // 完全依赖数据库：toggle后重新拉取最新状态和count
-        const nowLiked = await likeInspiration(inspiration.id, currentUserId);
-        // 操作完成后从数据库拉取真实count，消除所有并发误差
-        const latest = await getInspiration(inspiration.id);
-        setIsWatered(nowLiked);
-        if (latest) setLikeCount(latest.stats.likes);
-        if (nowLiked && inspiration.author.id) {
+        // RPC直接返回操作后的真实liked状态和真实count，一次请求搞定
+        const result = await likeInspiration(inspiration.id, currentUserId);
+        setIsWatered(result.liked);
+        setLikeCount(result.count);
+        if (result.liked && inspiration.author.id) {
           createNotification({
             recipientId: inspiration.author.id, type: 'like',
             actorId: currentUserId, actorName: currentUser?.name || '用户',
@@ -186,7 +184,7 @@ export default function DetailScreen({ inspiration, onBack, onNavigate, onUserCl
             content: `浇灌了你的灵感《${inspiration.title}》`,
           }).catch(() => {});
         }
-        showToast(nowLiked ? '💧 已浇水' : '取消浇水');
+        showToast(result.liked ? '💧 已浇水' : '取消浇水');
       } catch {
         showToast('操作失败，请重试');
       } finally {

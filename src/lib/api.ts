@@ -319,14 +319,17 @@ export async function updateInspiration(id: string, updates: {
 // LIKES
 // =============================================
 
-export async function likeInspiration(inspirationId: string, userId: string): Promise<boolean> {
-  // 用原子RPC函数，一次请求完成toggle+计数更新，避免并发竞争
+export async function likeInspiration(
+  inspirationId: string,
+  userId: string
+): Promise<{ liked: boolean; count: number }> {
+  // 原子RPC：返回操作后的真实状态和真实count
   const { data, error } = await supabase.rpc('toggle_like', {
     p_inspiration_id: inspirationId,
     p_user_id: userId,
   });
   if (error) throw error;
-  return data as boolean;
+  return data as { liked: boolean; count: number };
 }
 
 export async function hasLiked(inspirationId: string, userId: string): Promise<boolean> {
