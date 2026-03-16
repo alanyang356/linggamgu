@@ -213,7 +213,16 @@ function AppInner() {
     stats: { planted: 0, harvested: 0, following: 0 },
   };
 
+  // 跳转到广场并自动刷新
+  const goToSquare = () => {
+    setSquareRefreshKey(k => k + 1);
+    setCurrentScreen('square');
+  };
+
   const handleNavigate = (screen: Screen) => {
+    if (screen === 'square') {
+      setSquareRefreshKey(k => k + 1);
+    }
     setCurrentScreen(screen);
     setSelectedInspiration(null);
     setSelectedUser(null);
@@ -265,7 +274,7 @@ function AppInner() {
           <HomeScreen
             onPlant={() => setCurrentScreen('create')}
             onMatureClick={() => setCurrentScreen('mature-list')}
-            onSquareClick={() => setCurrentScreen('square')}
+            onSquareClick={goToSquare}
           />
         );
       case 'mature-list':
@@ -298,7 +307,7 @@ function AppInner() {
             onPublishSuccess={() => {
               setSquareRefreshKey(k => k + 1);
               refreshProfile();
-              if (editingInspiration) setCurrentScreen('square');
+              if (editingInspiration) goToSquare();
               setEditingInspiration(null);
             }}
             initialDraft={editingDraft}
@@ -439,7 +448,7 @@ function AppInner() {
         return selectedInspiration ? (
           <DetailScreen
             inspiration={selectedInspiration}
-            onBack={() => setCurrentScreen('square')}
+            onBack={goToSquare}
             onNavigate={handleNavigate}
             onUserClick={handleSelectUser}
             onEdit={(insp) => {
@@ -456,7 +465,7 @@ function AppInner() {
           <HomeScreen
             onPlant={() => setCurrentScreen('create')}
             onMatureClick={() => setCurrentScreen('mature-list')}
-            onSquareClick={() => setCurrentScreen('square')}
+            onSquareClick={goToSquare}
           />
         );
     }

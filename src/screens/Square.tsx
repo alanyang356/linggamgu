@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Search, Loader2 } from 'lucide-react';
+import { Search, Loader2, RefreshCw } from 'lucide-react';
 import InspirationCard from '../components/InspirationCard';
 import { Inspiration, User } from '../types';
 import { getInspirations } from '../lib/api';
@@ -24,6 +24,7 @@ export default function SquareScreen({ onSelect, onUserClick, currentUser, onMyI
 
   const [selectedCategory, setSelectedCategory] = useState('全部');
   const [searchQuery, setSearchQuery] = useState('');
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const categories = ['全部', '#旅行', '#学习', '#工作', '#创作', '#美食', '#生活'];
 
   const loadInspirations = useCallback(async (tab: 'public' | 'private', pageNum: number, reset = false) => {
@@ -41,12 +42,28 @@ export default function SquareScreen({ onSelect, onUserClick, currentUser, onMyI
     }
   }, []);
 
+  // 组件挂载时（每次进入广场）自动刷新
   useEffect(() => {
     setPage(0);
     setInspirations([]);
     setHasMore(true);
     loadInspirations(activeTab, 0, true);
   }, [activeTab]);
+
+
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    setPage(0);
+    setInspirations([]);
+    setHasMore(true);
+    try {
+      const data = await getInspirations(activeTab, 0, PAGE_SIZE);
+      setInspirations(data);
+      setHasMore(data.length === PAGE_SIZE);
+    } catch {}
+    setIsRefreshing(false);
+  };
 
   const handleLoadMore = () => {
     const nextPage = page + 1;
@@ -63,11 +80,16 @@ export default function SquareScreen({ onSelect, onUserClick, currentUser, onMyI
 
   return (
     <div className="pb-24">
-      <header className="sticky top-0 z-20 bg-background-light/80 backdrop-blur-md px-4 py-4 flex items-center justify-center border-b border-primary/10">
+      <header className="sticky top-0 z-20 bg-background-light/80 backdrop-blur-md px-4 py-4 flex items-center justify-between border-b border-primary/10">
+        <div className="w-10" />
         <div className="flex items-center gap-6">
           <button onClick={() => setActiveTab('public')} className={`text-lg font-bold transition-colors ${activeTab === 'public' ? 'text-slate-900' : 'text-slate-400'}`}>公开灵感</button>
           <button onClick={() => setActiveTab('private')} className={`text-lg font-bold transition-colors ${activeTab === 'private' ? 'text-slate-900' : 'text-slate-400'}`}>私密灵感</button>
         </div>
+        <button onClick={handleRefresh} disabled={isRefreshing}
+          className="size-10 flex items-center justify-center rounded-full hover:bg-primary/10 transition-colors text-slate-400 hover:text-primary disabled:opacity-50">
+          <RefreshCw size={18} className={isRefreshing ? 'animate-spin' : ''} />
+        </button>
       </header>
 
       <div className="px-4 py-4">
