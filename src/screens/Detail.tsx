@@ -163,12 +163,19 @@ export default function DetailScreen({ inspiration, onBack, onNavigate, onUserCl
   const handleAction = async (type: 'water' | 'fertilize' | 'harvest') => {
     if (!currentUserId) return;
     if (type === 'water') {
+      // 乐观更新
+      const optimisticLiked = !isWatered;
+      const optimisticCount = optimisticLiked ? likeCount + 1 : Math.max(0, likeCount - 1);
+      setIsWatered(optimisticLiked);
+      setLikeCount(optimisticCount);
       try {
-        // API内部以数据库状态为准，返回操作后的真实状态
         const nowLiked = await likeInspiration(inspiration.id, currentUserId);
-        setIsWatered(nowLiked);
+        // 服务器结果校正
+        if (nowLiked !== optimisticLiked) {
+          setIsWatered(nowLiked);
+          setLikeCount(nowLiked ? likeCount + 1 : Math.max(0, likeCount - 1));
+        }
         const newCount = nowLiked ? likeCount + 1 : Math.max(0, likeCount - 1);
-        setLikeCount(newCount);
         onLikeUpdate?.(inspiration.id, newCount, nowLiked);
         if (nowLiked && inspiration.author.id) {
           await createNotification({
@@ -214,15 +221,16 @@ export default function DetailScreen({ inspiration, onBack, onNavigate, onUserCl
 
   const handleSubmitInput = async (text: string) => {
     if (!currentUserId) return;
-    const newComment = {
-      id: Math.random().toString(36).substr(2, 9),
-      user: { name: currentUser?.name || '用户', avatar: currentUser?.avatar || '' },
-      content: text, time: '刚刚',
-    };
-    await addComment({
+    // 先发送到数据库，拿到真实ID再更新本地
+    const saved = await addComment({
       inspirationId: inspiration.id, authorId: currentUserId,
       authorName: currentUser?.name || '用户', authorAvatar: currentUser?.avatar || '', content: text,
     });
+    const newComment = {
+      id: saved?.id || Date.now().toString(),
+      user: { name: currentUser?.name || '用户', avatar: currentUser?.avatar || '' },
+      content: text, time: '刚刚',
+    };
     if (inspiration.author.id) {
       await createNotification({
         recipientId: inspiration.author.id, type: 'comment',

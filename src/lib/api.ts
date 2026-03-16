@@ -320,40 +320,13 @@ export async function updateInspiration(id: string, updates: {
 // =============================================
 
 export async function likeInspiration(inspirationId: string, userId: string): Promise<boolean> {
-  // 以数据库为准，先查真实点赞状态
-  const { data: existing } = await supabase
-    .from('likes')
-    .select('id')
-    .eq('inspiration_id', inspirationId)
-    .eq('user_id', userId)
-    .single();
-
-  // 获取当前真实likes_count
-  const { data: insp } = await supabase
-    .from('inspirations')
-    .select('likes_count')
-    .eq('id', inspirationId)
-    .single();
-
-  const currentCount = insp?.likes_count ?? 0;
-
-  if (existing) {
-    // 已点赞 → 取消，只做一次删除 + 一次减法
-    await supabase.from('likes').delete()
-      .eq('inspiration_id', inspirationId)
-      .eq('user_id', userId);
-    await supabase.from('inspirations')
-      .update({ likes_count: Math.max(0, currentCount - 1) })
-      .eq('id', inspirationId);
-    return false;
-  } else {
-    // 未点赞 → 点赞，只做一次插入 + 一次加法
-    await supabase.from('likes').insert({ inspiration_id: inspirationId, user_id: userId });
-    await supabase.from('inspirations')
-      .update({ likes_count: currentCount + 1 })
-      .eq('id', inspirationId);
-    return true;
-  }
+  // 用原子RPC函数，一次请求完成toggle+计数更新，避免并发竞争
+  const { data, error } = await supabase.rpc('toggle_like', {
+    p_inspiration_id: inspirationId,
+    p_user_id: userId,
+  });
+  if (error) throw error;
+  return data as boolean;
 }
 
 export async function hasLiked(inspirationId: string, userId: string): Promise<boolean> {

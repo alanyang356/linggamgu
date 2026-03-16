@@ -85,13 +85,25 @@ const InspirationCard: React.FC<InspirationCardProps> = ({ inspiration, onClick,
     e.stopPropagation();
     if (!currentUser?.id || isProcessing.current || isWatered === null) return;
     isProcessing.current = true;
+
+    // 乐观更新：立即响应UI，不等服务器
+    const optimisticLiked = !isWatered;
+    const optimisticCount = optimisticLiked ? localLikes + 1 : Math.max(0, localLikes - 1);
+    setIsWatered(optimisticLiked);
+    setLocalLikes(optimisticCount);
+
     try {
       const nowLiked = await likeInspiration(inspiration.id, currentUser.id);
-      setIsWatered(nowLiked);
-      setLocalLikes(prev => nowLiked ? prev + 1 : Math.max(0, prev - 1));
+      // 用服务器真实结果校正（防止和本地预测不一致）
+      if (nowLiked !== optimisticLiked) {
+        setIsWatered(nowLiked);
+        setLocalLikes(nowLiked ? localLikes + 1 : Math.max(0, localLikes - 1));
+      }
       onLikeChange?.(inspiration.id, nowLiked ? localLikes + 1 : Math.max(0, localLikes - 1), nowLiked);
     } catch {
-      // 失败不改变UI
+      // 失败回滚
+      setIsWatered(isWatered);
+      setLocalLikes(localLikes);
     } finally {
       isProcessing.current = false;
     }
