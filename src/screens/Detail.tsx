@@ -70,6 +70,7 @@ function getGradientIndex(id: string) {
 
 export default function DetailScreen({ inspiration, onBack, onNavigate, onUserClick, onEdit, currentUser, currentUserId, onDelete }: DetailScreenProps) {
   const [isWatered, setIsWatered] = useState(false);
+  const [isWaterLoading, setIsWaterLoading] = useState(true); // 等待数据库初始化
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteProcessing, setDeleteProcessing] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
@@ -91,14 +92,19 @@ export default function DetailScreen({ inspiration, onBack, onNavigate, onUserCl
 
   // 进入页面时：读取真实点赞/收藏状态 + 最新likes数 + 评论列表
   useEffect(() => {
+    setIsWaterLoading(true);
+    // 并行拉取：最新count + 当前用户点赞状态，两者都ready才允许点击
+    Promise.all([
+      getInspiration(inspiration.id),
+      currentUserId ? hasLiked(inspiration.id, currentUserId) : Promise.resolve(false),
+    ]).then(([latest, liked]) => {
+      if (latest) setLikeCount(latest.stats.likes);
+      setIsWatered(liked);
+    }).catch(() => {}).finally(() => setIsWaterLoading(false));
+
     if (currentUserId) {
-      hasLiked(inspiration.id, currentUserId).then(setIsWatered).catch(() => { });
       hasCollected(inspiration.id, currentUserId).then(setIsHarvested).catch(() => { });
     }
-    // 重新拉取最新likes数，防止从广场卡片带来的旧数据
-    getInspiration(inspiration.id).then(latest => {
-      if (latest) setLikeCount(latest.stats.likes);
-    }).catch(() => {});
     getComments(inspiration.id)
       .then(setComments)
       .catch(() => setComments(inspiration.comments || []))
@@ -162,31 +168,29 @@ export default function DetailScreen({ inspiration, onBack, onNavigate, onUserCl
   const handleAction = async (type: 'water' | 'fertilize' | 'harvest') => {
     if (!currentUserId) return;
     if (type === 'water') {
-      // 乐观更新
-      const optimisticLiked = !isWatered;
-      const optimisticCount = optimisticLiked ? likeCount + 1 : Math.max(0, likeCount - 1);
-      setIsWatered(optimisticLiked);
-      setLikeCount(optimisticCount);
+      if (isWaterLoading) return; // 初始化未完成，禁止操作
+      setIsWaterLoading(true);
       try {
+        // 完全依赖数据库：toggle后重新拉取最新状态和count
         const nowLiked = await likeInspiration(inspiration.id, currentUserId);
-        // 服务器结果校正
-        if (nowLiked !== optimisticLiked) {
-          setIsWatered(nowLiked);
-          setLikeCount(nowLiked ? likeCount + 1 : Math.max(0, likeCount - 1));
-        }
-        const newCount = nowLiked ? likeCount + 1 : Math.max(0, likeCount - 1);
+        // 操作完成后从数据库拉取真实count，消除所有并发误差
+        const latest = await getInspiration(inspiration.id);
+        setIsWatered(nowLiked);
+        if (latest) setLikeCount(latest.stats.likes);
         if (nowLiked && inspiration.author.id) {
-          await createNotification({
+          createNotification({
             recipientId: inspiration.author.id, type: 'like',
             actorId: currentUserId, actorName: currentUser?.name || '用户',
             actorAvatar: currentUser?.avatar || '',
             targetId: inspiration.id, targetTitle: inspiration.title,
             content: `浇灌了你的灵感《${inspiration.title}》`,
-          });
+          }).catch(() => {});
         }
         showToast(nowLiked ? '💧 已浇水' : '取消浇水');
       } catch {
-        // 失败不改变UI
+        showToast('操作失败，请重试');
+      } finally {
+        setIsWaterLoading(false);
       }
     } else if (type === 'harvest') {
       const newHarvested = !isHarvested;
@@ -344,8 +348,9 @@ export default function DetailScreen({ inspiration, onBack, onNavigate, onUserCl
         <div className="py-4 border-t border-slate-100">
           <div className="flex gap-4">
             <button onClick={() => handleAction('water')}
-              className={`flex-1 flex flex-col items-center gap-1 p-3 rounded-2xl transition-all duration-300 ${isWatered ? 'bg-primary text-white shadow-lg shadow-primary/20 scale-105' : 'bg-slate-50 text-slate-400 hover:text-primary'}`}>
-              <Droplets size={24} fill={isWatered ? 'currentColor' : 'none'} />
+              disabled={isWaterLoading}
+              className={`flex-1 flex flex-col items-center gap-1 p-3 rounded-2xl transition-all duration-300 disabled:opacity-60 ${isWatered ? 'bg-primary text-white shadow-lg shadow-primary/20 scale-105' : 'bg-slate-50 text-slate-400 hover:text-primary'}`}>
+              {isWaterLoading ? <Loader2 size={24} className="animate-spin" /> : <Droplets size={24} fill={isWatered ? 'currentColor' : 'none'} />}
               <span className="text-xs font-bold">浇水 {likeCount > 0 ? likeCount : ''}</span>
             </button>
             <button onClick={() => handleAction('fertilize')}
