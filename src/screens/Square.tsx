@@ -9,12 +9,11 @@ interface SquareScreenProps {
   onUserClick?: (user: any) => void;
   currentUser?: User;
   onMyInspirationsClick?: () => void;
-  likeUpdates?: Record<string, { count: number; isLiked: boolean }>;
 }
 
 const PAGE_SIZE = 12;
 
-export default function SquareScreen({ onSelect, onUserClick, currentUser, onMyInspirationsClick, likeUpdates }: SquareScreenProps) {
+export default function SquareScreen({ onSelect, onUserClick, currentUser, onMyInspirationsClick }: SquareScreenProps) {
   const [activeTab, setActiveTab] = useState<'public' | 'private'>('public');
   const [inspirations, setInspirations] = useState<Inspiration[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -22,13 +21,7 @@ export default function SquareScreen({ onSelect, onUserClick, currentUser, onMyI
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(0);
 
-  const handleLikeChange = (inspirationId: string, newLikeCount: number, _isLiked?: boolean) => {
-    setInspirations(prev => prev.map(item =>
-      item.id === inspirationId
-        ? { ...item, stats: { ...item.stats, likes: newLikeCount } }
-        : item
-    ));
-  };
+
   const [selectedCategory, setSelectedCategory] = useState('全部');
   const [searchQuery, setSearchQuery] = useState('');
   const categories = ['全部', '#旅行', '#学习', '#工作', '#创作', '#美食', '#生活'];
@@ -124,13 +117,10 @@ export default function SquareScreen({ onSelect, onUserClick, currentUser, onMyI
             {filteredInspirations.map((item) => (
               <InspirationCard
                 key={item.id}
-                inspiration={likeUpdates?.[item.id]
-                  ? { ...item, stats: { ...item.stats, likes: likeUpdates[item.id].count } }
-                  : item}
+                inspiration={item}
                 onClick={() => onSelect(item)}
                 onUserClick={onUserClick}
                 currentUser={currentUser}
-                onLikeChange={handleLikeChange}
               />
             ))}
             {!searchQuery && selectedCategory === '全部' && hasMore && (

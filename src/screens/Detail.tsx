@@ -12,7 +12,6 @@ interface DetailScreenProps {
   onEdit?: (inspiration: Inspiration) => void;
   currentUser?: User;
   currentUserId?: string;
-  onLikeUpdate?: (inspirationId: string, count: number, isLiked: boolean) => void;
   onDelete?: (inspirationId: string) => void;
 }
 
@@ -69,7 +68,7 @@ function getGradientIndex(id: string) {
   return id.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) % 6;
 }
 
-export default function DetailScreen({ inspiration, onBack, onNavigate, onUserClick, onEdit, currentUser, currentUserId, onLikeUpdate, onDelete }: DetailScreenProps) {
+export default function DetailScreen({ inspiration, onBack, onNavigate, onUserClick, onEdit, currentUser, currentUserId, onDelete }: DetailScreenProps) {
   const [isWatered, setIsWatered] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteProcessing, setDeleteProcessing] = useState(false);
@@ -176,7 +175,6 @@ export default function DetailScreen({ inspiration, onBack, onNavigate, onUserCl
           setLikeCount(nowLiked ? likeCount + 1 : Math.max(0, likeCount - 1));
         }
         const newCount = nowLiked ? likeCount + 1 : Math.max(0, likeCount - 1);
-        onLikeUpdate?.(inspiration.id, newCount, nowLiked);
         if (nowLiked && inspiration.author.id) {
           await createNotification({
             recipientId: inspiration.author.id, type: 'like',

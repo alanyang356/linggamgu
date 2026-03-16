@@ -136,11 +136,6 @@ function AppInner() {
   const [editingInspiration, setEditingInspiration] = useState<Inspiration | null>(null);
   const [unreadNotifCount, setUnreadNotifCount] = useState(0);
   const [squareRefreshKey, setSquareRefreshKey] = useState(0); // 发布后递增，触发广场刷新
-  const [likeUpdates, setLikeUpdates] = useState<Record<string, { count: number; isLiked: boolean }>>({});
-
-  const handleLikeUpdate = (inspirationId: string, count: number, isLiked: boolean) => {
-    setLikeUpdates(prev => ({ ...prev, [inspirationId]: { count, isLiked } }));
-  };
 
   const handleDeleteInspiration = (_inspirationId: string) => {
     setCurrentScreen('my-inspirations'); // 删除后跳回我的灵感列表
@@ -290,7 +285,6 @@ function AppInner() {
             onUserClick={handleSelectUser}
             currentUser={safeUser}
             onMyInspirationsClick={() => setCurrentScreen('my-inspirations')}
-            likeUpdates={likeUpdates}
           />
         );
       case 'create':
@@ -454,7 +448,6 @@ function AppInner() {
             }}
             currentUser={safeUser}
             currentUserId={supabaseUser.id}
-            onLikeUpdate={handleLikeUpdate}
             onDelete={handleDeleteInspiration}
           />
         ) : null;
